@@ -51,6 +51,7 @@ def mock_config():
     config = MagicMock(spec=RVStaticAnalysisConfig)
     config.output_dir = "/tmp/test_output_gate"
     config.analysis_timeout = 600
+    config.dist_max = None
     return config
 
 

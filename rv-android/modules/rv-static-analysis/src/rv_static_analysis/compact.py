@@ -1,12 +1,13 @@
 """
 Convert a full-mode static-analysis document to the compact form GATOR writes.
 
-GATOR writes the analysis document in one of two modes. In full mode
-(`-clientParam fullOutput=true`) it indents by two spaces and gives every app
-method its `[i, d]` pair to every target within `DIST_MAX` calls. In compact
-mode, the default, it writes no whitespace, keeps per method only the pairs at
-`d <= COMPACT_WEIGHED_MAX` and the `COMPACT_K` nearest by `(d, i)`, and records
-that reduction in a top-level `distancePairs` member (INV-ANA-85, INV-ANA-86).
+GATOR writes the analysis document in one of two modes, both without
+whitespace. In full mode (`-clientParam fullOutput=true`) it gives every app
+method its `[i, d]` pair to every target within the run's horizon (`distMax`,
+10 when the run passes none). In compact mode, the default, it keeps per method
+only the pairs at `d <= COMPACT_WEIGHED_MAX` and the `COMPACT_K` nearest by
+`(d, i)`, and records that reduction in a top-level `distancePairs` member
+(INV-ANA-85, INV-ANA-86).
 `compact_document()` turns a full document into the compact document GATOR
 would have written for the same analysis, byte for byte (INV-ANA-87).
 

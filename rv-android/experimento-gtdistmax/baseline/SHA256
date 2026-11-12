@@ -1,0 +1,7 @@
+# Baseline GATOR jars (task 0.1), copied from the main tree's rv-android/lib/gator/ on 2026-11-11T14:44:15-03:00
+# built 2026-11-02 15:15 with the 0.9.7 bump (b4f7dd67); Maven jars are not byte-reproducible, the tree SHA identifies the code
+gator_tree_b4f7dd67 1f252fe039498c56d56b11f63a0e4913b7caee7c
+gator_tree_HEAD_99572bc0 1f252fe039498c56d56b11f63a0e4913b7caee7c
+main_tree_gator_dirty_files 0
+dfb17c3d0cec325898a279a47683e4419deb39a5550eccf308da62e444eb2bcf  rvsec-analysis-client.jar
+740de467db9144b3ddfdfa4e5b4f315b4796b99d149c7b11c7c8510b977537e5  rvsec-gator.jar

@@ -1,0 +1,63 @@
+### 5.3 distMax=10 vs no parameter, both modes
+## full cryptoapp.apk
+member order with distMax right after class_defs_under_key: True; distMax=10; newlines in WITH: 0
+without-distMax: members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+without-distMax: package equal
+without-distMax: mainActivity equal
+without-distMax: codePackage equal
+without-distMax: codePackageSource equal
+without-distMax: class_defs_under_key equal
+without-distMax: distanceTargets equal
+without-distMax: components equal
+without-distMax: reachability equal
+without-distMax: windows equal
+without-distMax: transitions order-equal (35 edges)
+without-distMax: complete equal
+RESULT PASS
+## full org.musicbrainz.picard.barcodescanner_38.apk
+member order with distMax right after class_defs_under_key: True; distMax=10; newlines in WITH: 0
+without-distMax: members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+without-distMax: package equal
+without-distMax: mainActivity equal
+without-distMax: codePackage equal
+without-distMax: codePackageSource equal
+without-distMax: class_defs_under_key equal
+without-distMax: distanceTargets equal
+without-distMax: components equal
+without-distMax: reachability equal
+without-distMax: windows equal
+without-distMax: transitions multiset-equal (175 edges)
+without-distMax: complete equal
+RESULT PASS
+## compact cryptoapp.apk
+member order with distMax right after class_defs_under_key: True; distMax=10; newlines in WITH: 0
+without-distMax: members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distancePairs', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+without-distMax: package equal
+without-distMax: mainActivity equal
+without-distMax: codePackage equal
+without-distMax: codePackageSource equal
+without-distMax: class_defs_under_key equal
+without-distMax: distancePairs equal
+without-distMax: distanceTargets equal
+without-distMax: components equal
+without-distMax: reachability equal
+without-distMax: windows equal
+without-distMax: transitions multiset-equal (35 edges)
+without-distMax: complete equal
+RESULT PASS
+## compact org.musicbrainz.picard.barcodescanner_38.apk
+member order with distMax right after class_defs_under_key: True; distMax=10; newlines in WITH: 0
+without-distMax: members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distancePairs', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+without-distMax: package equal
+without-distMax: mainActivity equal
+without-distMax: codePackage equal
+without-distMax: codePackageSource equal
+without-distMax: class_defs_under_key equal
+without-distMax: distancePairs equal
+without-distMax: distanceTargets equal
+without-distMax: components equal
+without-distMax: reachability equal
+without-distMax: windows equal
+without-distMax: transitions multiset-equal (175 edges)
+without-distMax: complete equal
+RESULT PASS

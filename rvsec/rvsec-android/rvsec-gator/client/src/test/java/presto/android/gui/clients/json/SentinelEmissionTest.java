@@ -85,7 +85,6 @@ public class SentinelEmissionTest {
 				OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
 				JsonWriter w = new JsonWriter(osw)) {
 
-			w.setIndent("  ");
 			w.beginObject();
 			w.name("package").value("test.pkg");
 			w.name("mainActivity").value("test.pkg.Main");
@@ -260,7 +259,6 @@ public class SentinelEmissionTest {
 				OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
 				JsonWriter w = new JsonWriter(osw)) {
 
-			w.setIndent("  ");
 			w.beginObject();
 			w.name("package").value("test.pkg");
 			w.name("components");

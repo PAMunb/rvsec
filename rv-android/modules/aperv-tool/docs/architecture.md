@@ -13,7 +13,7 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | FR | Description | Architectural Support |
 |----|-------------|----------------------|
 | FR18 | Plugin system with registry and factory patterns | `ApeRVTool` extends `AbstractTool` (rv-android-core) and registers via `ToolRegistry` in rv-platform's `_register_external_tools()` |
-| FR20 | Per-tool variant system | `get_variants()` returns eight names carrying seven configurations — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `default` bound to `base`, and the ablation `mop_nolaunch` on the `mop` preset — each a `preset`, a `variant` name and `overrides`; the three MOP cells and `mop_nolaunch` set `mop_coin_ledger_max_interactions` to 2 (D18); `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
+| FR20 | Per-tool variant system | `get_variants()` returns eight names carrying seven configurations — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `default` bound to `base`, and the ablation `mop_nolaunch` on the `mop` preset — each a `preset`, a `variant` name and `overrides`; no cell states a MOP parameter, so the MOP cells run the paired jar's F1 defaults; `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
 
 ### Key Invariants
 
@@ -30,7 +30,10 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | INV-APV-45 | A cell that reads the artifact never launches without it | when `static_data == "static_analysis"` the tool either pushes a freshly validated derived artifact and writes `ape.staticDataPath`, or raises `RVToolExecutionError` before the jar is launched |
 | INV-APV-65 | The trace names its cell | every variant carries `variant` equal to its cell name; `_push_properties()` writes `ape.variant=<variant>` as the second line; the jar echoes it as `RUN_START.variant`, and the tool never reads it back |
 | INV-APV-60 | A run that did not explore its budget must not be reported as successful | `execute_tool_specific_logic()` measures the exploration against `time.monotonic()` and raises `RVToolExecutionError` when a non-timeout return came back more than `TOOL_TEARDOWN_GRACE_S` short of `task.config.timeout` |
-| INV-APV-64 | On a cache miss the source is read in streaming, keeping per method only the per-target minima at `d <= DIST_WEIGHED_MAX` and the `DIST_K` nearest, and the artifact is byte-identical to one derived from the whole document | `_derive_mop_artifact()` calls `read_analysis_document(path, PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K))`; the cuts are imported from `derive_mop_artifact`, so the reduction and the derivation name one pair of constants. `tests/test_derive_mop_artifact.py` compares the streamed and whole-document artifacts byte for byte |
+| INV-APV-64 | On a cache miss the source is read in streaming, keeping per method only the per-target minima at `d <= cut` and the `DIST_K` nearest, and the artifact is byte-identical to one derived from the whole document at the same cut | `_derive_mop_artifact()` calls `read_analysis_document(path, PairPolicy.reduce(cut, DIST_K))` and then `derive(..., cut=cut)` with the same cut; `DIST_WEIGHED_MAX` and `DIST_K` are imported from `derive_mop_artifact`, so the reduction and the derivation name one pair of constants. `tests/test_derive_mop_artifact.py` compares the streamed and whole-document artifacts byte for byte, at the default cut and at a deeper one |
+| INV-APV-70 / INV-APV-72 | The cut follows the weight ladder, and the cached artifact is named by its cut | `_derive_cut()` returns max(`DIST_WEIGHED_MAX`, length of `mop_weights`), `DIST_WEIGHED_MAX` without a ladder; `_artifact_name()` gives `<apk>.mop.json` at 3 and `<apk>.cut<c>.mop.json` otherwise, so an artifact of one cut is never pushed for another |
+| INV-APV-71 | No artifact is derived at a cut the document cannot carry | `_recorded_weighed_max()` refuses a compact document whose `distancePairs.weighedMax` is below the cut, or whose marker is malformed, with `RVToolExecutionError`; `derive()` refuses a cut outside `[1, distMax]` (`DEFAULT_DIST_MAX` = 10 when the document carries no `distMax`) and a `distMax` that is not an integer ≥ 1 with `DerivationError`. Nothing is written or pushed |
+| INV-APV-73 | APE-RV's VM starts with a 512m heap growth limit in every cell | `execute_tool_specific_logic()` calls `Android.set_ape_heap_growth_limit` (rv-android-core) after the pushes and before the main command; a failed setprop or a read-back other than `APE_HEAP_GROWTH_LIMIT` raises `RVToolExecutionError` and the exploration does not start |
 
 ### Specification Scenarios
 
@@ -122,7 +125,7 @@ Shows key domain entities and their relationships.
 | JarResolver | Resolves the path to `ape-rv.jar` via priority search across configured directories |
 | Command | Encapsulates an ADB shell command with timeout; used for both file push and main execution |
 | APERV_PROPERTY_MAPPING | Maps Python config keys to Java `ape.properties` keys; controls what is written to the device |
-| MOP artifact (`<apk>.mop.json`) | The lossy projection of static analysis that the device reads; derived host-side, cached by the source digest, and readable by no module outside aperv-tool (INV-ANA-53) |
+| MOP artifact (`<apk>.mop.json`, `<apk>.cut<c>.mop.json`) | The lossy projection of static analysis that the device reads; derived host-side at the cell's cut, cached by the source digest under a name that carries the cut, and readable by no module outside aperv-tool (INV-ANA-53) |
 
 ### Component Architecture
 
@@ -330,7 +333,7 @@ sequenceDiagram
     opt static_data == "static_analysis" (every cell but base)
         Tool->>Tool: _find_static_analysis_file(task)
         alt static analysis JSON found
-            Tool->>Tool: _derive_mop_artifact(task) [cache-or-derive]
+            Tool->>Tool: _derive_mop_artifact(task) [cache-or-derive at the cell's cut]
             Tool->>ADB: adb push mop-artifact.json /data/local/tmp/
             ADB-->>Tool: OK
         else absent or underivable
@@ -345,6 +348,13 @@ sequenceDiagram
     opt overrides carry llm_url
         Tool->>Tool: _capture_llm_provenance(llm_url, jar_path)
         Tool->>Tool: write <run>.provenance.json sidecar<br/>(failure logs a warning, never fails the run)
+    end
+
+    Tool->>ADB: Android.set_ape_heap_growth_limit<br/>su 0 setprop dalvik.vm.heapgrowthlimit 512m, then getprop
+    alt read back as 512m
+        ADB-->>Tool: OK
+    else setprop failed or another value
+        Tool-->>Platform: RVToolExecutionError (INV-APV-73)<br/>exploration not started
     end
 
     Tool->>Tool: stamp time.monotonic()
@@ -378,15 +388,15 @@ The two normal-exit branches are one code path that ends differently: compressio
 
 ### ApeRVTool
 
-**Purpose**: Implements the `AbstractTool` interface for APE-RV, managing the complete device interaction lifecycle: JAR resolution, file deployment, properties generation, command execution, trace validation and the completion check that establishes a run actually explored its budget.
+**Purpose**: Implements the `AbstractTool` interface for APE-RV, managing the complete device interaction lifecycle: JAR resolution, file deployment, properties generation, the heap growth limit, command execution, trace validation and the completion check that establishes a run actually explored its budget.
 
 **Location**: `src/aperv_tool/tools/aperv/tool.py`
 
 **Key Classes**:
-- `ApeRVTool`: Main tool class extending `AbstractTool`, covering configuration, JAR resolution, file push, MOP artifact derivation and caching, LLM provenance capture, properties generation, command building, execution, empty-trace detection and trace compression.
+- `ApeRVTool`: Main tool class extending `AbstractTool`, covering configuration (the weight ladder included), JAR resolution, file push, MOP artifact derivation and caching at the cell's cut, LLM provenance capture, properties generation, the heap growth limit, command building, execution, empty-trace detection and trace compression.
 
 **Dependencies**:
-- Internal: `rv-android-core` (AbstractTool, Command, JarResolver, ErrorHandler, LoggingManager, domain models, exceptions, and `util.analysis_document` for the streaming read and the source digest); `aperv_tool.tools.aperv.derive_mop_artifact`
+- Internal: `rv-android-core` (AbstractTool, Command, JarResolver, ErrorHandler, LoggingManager, domain models, exceptions, `util.analysis_document` for the streaming read and the source digest, and `Android.set_ape_heap_growth_limit`); `aperv_tool.tools.aperv.derive_mop_artifact`
 - External: None (uses only stdlib `gzip`, `hashlib`, `json`, `os`, `re`, `shutil`, `tempfile`, `urllib.request`)
 
 ### derive_mop_artifact
@@ -397,7 +407,9 @@ The two normal-exit branches are one code path that ends differently: compressio
 
 **Why it is a module rather than methods on the tool**: these rules used to run on the device at load time, where the jar parsed the whole call graph and rejected large ones. Moving them host-side made them testable without a device and removed the per-app fairness gap; keeping them pure — no I/O, no device concepts — is what lets `tests/test_derive_mop_artifact.py` name one test per rule and check the cryptoapp ground truth directly.
 
-**Why its two cuts bind the caller's read**: `derive()` merges a target's distances by the minimum and cuts only at emission — a widget or handler list keeps every pair at `d <= DIST_WEIGHED_MAX`, an activity list its `DIST_K` nearest. That is what makes the caller's streaming reduction exact (INV-APV-64): a pair outside both cuts has `DIST_K` targets ahead of it in its own method, and they stay ahead after any merge, so dropping it while reading cannot change the artifact. A change to either cut is therefore a change to the reduction, and `tool.py` imports both constants from here rather than restating them. The module reads no file; the provenance digest is computed by the caller with `rv_android_core.util.analysis_document.digest_of_file()`, the same digest the parsed-copy cache of `rv-static-analysis` keys on.
+**Why its two cuts bind the caller's read**: `derive()` merges a target's distances by the minimum and cuts only at emission — a widget or handler list keeps every pair at `d <= cut` (`DIST_WEIGHED_MAX` = 3 by default), an activity list its `DIST_K` nearest whatever the cut. That is what makes the caller's streaming reduction exact (INV-APV-64): a pair outside both cuts has `DIST_K` targets ahead of it in its own method, and they stay ahead after any merge, so dropping it while reading cannot change the artifact. A change to either cut is therefore a change to the reduction, so `tool.py` reduces with the cut it passes to `derive()` and imports both defaults from here rather than restating them.
+
+**Why the cut is bounded by the document's horizon**: GATOR records no pair beyond the horizon its run searched to — the document's `distMax`, or `DEFAULT_DIST_MAX` (10, pinned to GATOR's by the parity test) when it carries none — so an artifact derived deeper would carry the horizon's lists under a deeper cut's name. `derive()` refuses such a cut, and a `distMax` that is not an integer ≥ 1, with `DerivationError` (INV-APV-71). The cut is not written into the artifact; the caller names the cached file by it. The module reads no file; the provenance digest is computed by the caller with `rv_android_core.util.analysis_document.digest_of_file()`, the same digest the parsed-copy cache of `rv-static-analysis` keys on.
 
 ### analysis package
 
@@ -538,7 +550,7 @@ frozen with the reason — closed by a grep over `modules/`, `scripts/`, the exp
 
 ### Variant System
 
-**Purpose**: Define the experimental matrix as **one variant per cell**, plus the ablation `mop_nolaunch`: 8 names carrying 7 configurations, each a jar cell preset, its own name, the deployment facts the jar cannot know, and on the three MOP cells the coin's ledger budget.
+**Purpose**: Define the experimental matrix as **one variant per cell**, plus the ablation `mop_nolaunch`: 8 names carrying 7 configurations, each a jar cell preset, its own name and the deployment facts the jar cannot know.
 
 **Location**: `src/aperv_tool/tools/aperv/tool.py` (`get_variants()` classmethod)
 
@@ -548,12 +560,12 @@ APE-RV mounts five behaviour groups by declaration. BASE is the APE algorithm, A
 |---|---|---|---|---|---|
 | `default` | `base` | — | — | — | _(empty)_ — the same object as `base` (INV-TOOL-02) |
 | `base` | `base` | — | — | — | _(empty)_ |
-| `mop` | `mop` | MOP | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2` |
+| `mop` | `mop` | MOP | `"static_analysis"` | — | _(empty)_ |
 | `as` | `as` | ADDONS, STATIC | `"static_analysis"` | `True` | _(empty)_ |
-| `as_mop` | `as_mop` | ADDONS, STATIC, MOP | `"static_analysis"` | `True` | `mop_coin_ledger_max_interactions: 2` |
+| `as_mop` | `as_mop` | ADDONS, STATIC, MOP | `"static_analysis"` | `True` | _(empty)_ |
 | `as_llm` | `as_llm` | ADDONS, STATIC, LLM | `"static_analysis"` | `True` | `llm_url` |
-| `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | `"static_analysis"` | `True` | `mop_coin_ledger_max_interactions: 2`, `llm_url` |
-| `mop_nolaunch` | `mop` | MOP without `MOP_LAUNCHER` | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2`, `activity_trigger_enabled: False` |
+| `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | `"static_analysis"` | `True` | `llm_url` |
+| `mop_nolaunch` | `mop` | MOP without `MOP_LAUNCHER` | `"static_analysis"` | — | `activity_trigger_enabled: False` |
 
 Every variant carries `strategy="sata"` and `variant` equal to its own name (`default` carries `"base"`).
 
@@ -562,7 +574,7 @@ Each orchestration key states one deployment fact, because the Python side does 
 - `static_data` is present exactly on the cells that mount STATIC or MOP (INV-APV-66). `mop` reads the artifact with ADDONS and STATIC off, and `as` reads it with MOP off, which is why the key is named after the static data and not after MOP.
 - `broadcast_catalog` is present exactly on the cells that mount STATIC (INV-APV-10), because the catalog's only reader in the jar is component triggering, a STATIC member.
 - `overrides` carries `llm_url` on the two LLM cells (INV-APV-38). The LLM presets state the group without the URL, which names a machine rather than a cell.
-- `overrides` carries `mop_coin_ledger_max_interactions: 2` on the three MOP cells (design D18). The jar's default is 1 and its group blocks do not state the key; the author placed the default here after the `e03igg2` campaign, where the coin at 2 was the only arm above APE in misuses. The cell gate therefore compares these cells with their fixtures plus one `params` entry and leaves the digest out.
+- No cell states a MOP parameter (design D15 of gh-tbd-gator-full-minified-horizon). The coin's ledger budget, the weight ladder, the retirement and the launcher cadence take the jar's defaults, which on the paired jar are calibration v6's finalist F1 (ladder `194,146,97`, retirement after 10, ledger 4, stagnation step 85). An unstated key of a mounted feature takes the jar's default, so a jar without those defaults would run the coin at its own default without aborting; `tests/migration/test_cells.py::TestLedgerBudget` checks that the default is 4. The cell gate compares `mop`, `as_mop` and `as_mop_llm` with their fixtures on every member, digest included.
 
 The division of authority is the point: the jar owns what a group *means* and which groups a cell mounts, Python owns *which cells exist*. A dose or another tunable is an ablation through the tool DSL (`aperv:as_mop@mop_coin_percentage=0.5`), never a new preset. An ablation that runs in the same containers as its cell is a named variant on the cell's preset instead, because the platform's resume identity (apk, tool, variant, repetition, timeout) and the result file names leave the parameters out: `mop_nolaunch` is the `mop` cell with the launcher unmounted. The arm names of earlier campaigns are not defined; campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`.
 
@@ -644,20 +656,20 @@ classDiagram
 4. `execute_tool_specific_logic()` resolves `ape-rv.jar` via `JarResolver` and pushes it to the device
 5. Because the variant carries `broadcast_catalog=True`, `system-broadcast.json` is pushed when present in the module directory; component triggering, a STATIC member, reads it for typed extras
 6. The tool finds the static analysis JSON in `task.results_dir`, derives the compact artifact from it (or reuses the cached `<apk_name>.mop.json` when its recorded digest and format still match), and pushes **only the artifact** as `/data/local/tmp/mop-artifact.json`
-7. `_push_properties()` generates a four-line `ape.properties`: `ape.preset=as_mop`, `ape.variant=as_mop`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.mopCoinLedgerMaxInteractions=2`. The last line is the cell's one override: the jar's default is 1, and this side sets the MOP cells to 2 (D18). Nothing else is written — the group keys, the throttle, the frontier, the MOP weights and the rest of the MOP coin are supplied by the `as_mop` preset inside the jar
-8. APE-RV runs via `app_process` on the device, resolves the cell, echoes `RUN_START` with `variant: "as_mop"`, and uses the artifact for the STATIC and MOP members
+7. `_push_properties()` generates a three-line `ape.properties`: `ape.preset=as_mop`, `ape.variant=as_mop`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`. The cell carries no override. Nothing else is written — the group keys, the throttle, the frontier, the MOP weights and the MOP coin are supplied by the `as_mop` preset and the jar's defaults
+8. `Android.set_ape_heap_growth_limit` sets `dalvik.vm.heapgrowthlimit` to `512m` as root and reads it back (INV-APV-73); then APE-RV runs via `app_process` on the device, resolves the cell, echoes `RUN_START` with `variant: "as_mop"`, and uses the artifact for the STATIC and MOP members
 9. After timeout, `RVCommandTimeoutError` is caught and re-raised as `RVToolTimeoutError` (normal completion)
 10. rv-platform collects coverage from logcat independently
 
 ### Scenario 2: The LLM cell behind a non-emulator address (`aperv:as_mop_llm`)
 
-**Description**: An experiment runs `as_mop_llm` in a Docker deployment, where `10.0.2.2` does not reach the SGLang server. It shows the two overrides the cell carries, the MOP coin ledger at 2 and the LLM URL, and the two ways a deployment changes the URL.
+**Description**: An experiment runs `as_mop_llm` in a Docker deployment, where `10.0.2.2` does not reach the SGLang server. It shows the one override the cell carries, the LLM URL, and the two ways a deployment changes it.
 
 **Flow**:
 1. The operator sets `APERV_LLM_BASE_URL=http://192.168.0.36:30000/v1` and runs `rv-experiment run --tools aperv:as_mop_llm`
 2. `rv-experiment`'s entry point reads the variable once, beside `RV_HUMANOID_URL`. The variant definition of `as_mop_llm` in `ToolRegistry` carries `overrides.llm_url`, and the `ToolConfig` has no `llm_url` parameter, so the entry point sets `parameters["llm_url"]` to the variable's value. A `ToolConfig` for `aperv:as_mop` or `aperv:base` would receive nothing, and `aperv:as_mop_llm@llm_url=http://sglang:30000/v1` would keep its own value, because the DSL wins over the variable
-3. `ToolFactory` merges the variant (`preset="as_mop_llm"`, `variant="as_mop_llm"`, `static_data`, `broadcast_catalog`, `overrides={"mop_coin_ledger_max_interactions": 2, "llm_url": "http://10.0.2.2:30000/v1"}`) with the parameters, and `configure()`'s DSL fold moves the top-level `llm_url` into `overrides`, where it replaces the cell default. `configure()` reads no environment
-4. Execution pushes the JAR, the broadcast catalog and the derived artifact, then writes `ape.properties`: `ape.preset=as_mop_llm`, `ape.variant=as_mop_llm`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.mopCoinLedgerMaxInteractions=2`, `ape.llmUrl=http://192.168.0.36:30000/v1`. The identity of the jar being pushed is measured, not declared: `_capture_llm_provenance()` digests it into the run's `jar_sha256` and queries the backend's `/v1/models`, and no variant names a build (INV-APV-59)
+3. `ToolFactory` merges the variant (`preset="as_mop_llm"`, `variant="as_mop_llm"`, `static_data`, `broadcast_catalog`, `overrides={"llm_url": "http://10.0.2.2:30000/v1"}`) with the parameters, and `configure()`'s DSL fold moves the top-level `llm_url` into `overrides`, where it replaces the cell default. `configure()` reads no environment
+4. Execution pushes the JAR, the broadcast catalog and the derived artifact, then writes `ape.properties`: `ape.preset=as_mop_llm`, `ape.variant=as_mop_llm`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.llmUrl=http://192.168.0.36:30000/v1`. The identity of the jar being pushed is measured, not declared: `_capture_llm_provenance()` digests it into the run's `jar_sha256` and queries the backend's `/v1/models`, and no variant names a build (INV-APV-59)
 5. APE-RV resolves the cell, whose LLM block states E6 arm 4's sampling configuration with `p_L = 0.9`, and queries the SGLang server at the configured URL during exploration
 
 ---
@@ -688,9 +700,10 @@ flowchart TB
         PushJar["Push ape-rv.jar\n-> /data/local/tmp/"]
         PushBroadcast["Push system-broadcast.json\n-> /data/local/tmp/\n(broadcast_catalog: as* cells)"]
         FindStatic["_find_static_analysis_file()\nLook for <apk>.json\nabsent => task fails"]
-        DeriveArtifact["_derive_mop_artifact()\nDigest cache -> derive\n-> <apk>.mop.json"]
+        DeriveArtifact["_derive_mop_artifact()\nDigest cache -> derive at the cut\n-> <apk>.mop.json (cut 3)\nor <apk>.cut<c>.mop.json"]
         PushStatic["Push mop-artifact.json\n-> /data/local/tmp/\n(static_data: every cell but base)"]
         GenProps["_push_properties()\npreset, variant, staticDataPath,\nthen overrides via APERV_PROPERTY_MAPPING"]
+        HeapLimit["Android.set_ape_heap_growth_limit()\nsetprop dalvik.vm.heapgrowthlimit 512m\nnot read back => RVToolExecutionError"]
         BuildCmd["_build_main_command()\nadb shell CLASSPATH=...\napp_process /system/bin"]
         Execute["Command.invoke()\nWrite stdout to trace_file"]
         CheckTrace["_check_empty_trace()\nWarn on 0-byte trace"]
@@ -711,7 +724,8 @@ flowchart TB
     FindStatic --> DeriveArtifact
     DeriveArtifact --> PushStatic
     PushStatic --> GenProps
-    GenProps --> BuildCmd
+    GenProps --> HeapLimit
+    HeapLimit --> BuildCmd
     BuildCmd --> Execute
     Execute --> CheckTrace
     CheckTrace --> CheckDone
@@ -732,13 +746,13 @@ ape.staticDataPath=/data/local/tmp/mop-artifact.json  # only when the artifact w
 ape.<mapped-override-key>=<value>                     # one line per overrides entry, mapping order
 ```
 
-What a preset contains is resolved inside the jar, so no line restates a group block: `base` ships a two-line file, `as_mop` a four-line one, the fourth being `ape.mopCoinLedgerMaxInteractions=2`, and `as_mop_llm` five lines, the ledger line followed by `ape.llmUrl`. The emission loop walks the mapping rather than the `overrides` dict, so line order follows the table. The data line is `ape.staticDataPath` because the artifact feeds STATIC as well as MOP; the jar retired `ape.mopDataPath`, and a file that still writes it aborts with `retired_key`. The device path of the artifact is a file name, not a key, and keeps its name.
+What a preset contains is resolved inside the jar, so no line restates a group block: `base` ships a two-line file, `as` and `as_mop` a three-line one, and `as_mop_llm` four lines, the fourth being `ape.llmUrl`. The emission loop walks the mapping rather than the `overrides` dict, so line order follows the table. The data line is `ape.staticDataPath` because the artifact feeds STATIC as well as MOP; the jar retired `ape.mopDataPath`, and a file that still writes it aborts with `retired_key`. The device path of the artifact is a file name, not a key, and keeps its name.
 
 `ape.variant` is a fixed line rather than a mapped override for a reason: `ToolFactory` passes `configure()` the variant's config, not its name, so the name has to live in the config, and a mapped key would let any DSL parameter relabel a run. The jar echoes it outside the plan digest, so a trace names its cell without relying on the file name, and two cells with the same effective plan keep the same digest.
 
 Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and `variant` (written by their own lines), `overrides` (the cell's deltas), `strategy` (the `--ape` flag), `static_data` (whether the artifact is pushed), `broadcast_catalog` (whether the catalog is pushed), `seed`, and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched. Boolean values are serialized as lowercase `true`/`false` to match what the jar's `Config` loader parses.
 
-`APERV_PROPERTY_MAPPING` is a pass-through table that contains only keys the paired jar accepts (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps it against the jar's `KeyOwnership.java` vocabulary and retired list. No cell sets any entry but `llm_url` and, on the three MOP cells, `mop_coin_ledger_max_interactions`: the others exist so an ablation can be written as a DSL override without a code change. The 67 entries, grouped by the group that owns each key:
+`APERV_PROPERTY_MAPPING` is a pass-through table that contains only keys the paired jar accepts (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps it against the jar's `KeyOwnership.java` vocabulary and retired list. No cell sets any entry but `llm_url` (and `activity_trigger_enabled` on the ablation `mop_nolaunch`): the others exist so an ablation can be written as a DSL override without a code change. The 64 entries, grouped by the group that owns each key:
 
 | Python Key | Java Property | Notes |
 |------------|--------------|-------|
@@ -784,13 +798,11 @@ Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and
 | `activity_trigger_max_per_run` | `ape.activityTriggerMaxPerRun` | `MOP_LAUNCHER` sub-parameter |
 | `component_percentage` | `ape.componentPercentage` | `COMPONENT_TRIGGER` activation (STATIC); the STATIC block states 0.03 |
 | `mop_scoring` | `ape.mopScoring` | `MOP` sub-parameter; the MOP block states `distance` |
-| `mop_weight_d1` | `ape.mopWeightD1` | `MOP` sub-parameter, read under `distance` only |
-| `mop_weight_d2` | `ape.mopWeightD2` | `MOP` sub-parameter, read under `distance` only |
-| `mop_weight_d3` | `ape.mopWeightD3` | `MOP` sub-parameter, read under `distance` only |
+| `mop_weights` | `ape.mopWeights` | `MOP` sub-parameter, read under `distance` only; the weight ladder, one weight per distance level, 1 to 10 non-negative ints written `a;b;c` in the DSL and `a,b,c` in the file; its length sets the derive's cut, max(3, length) (INV-APV-70) |
 | `mop_retire_after` | `ape.mopRetireAfter` | `MOP` sub-parameter, read under `distance` only |
 | `mop_launcher_dmax` | `ape.mopLauncherDmax` | `MOP` sub-parameter, read under `distance` only |
 | `mop_coin_percentage` | `ape.mopCoinPercentage` | `MOP_COIN` activation (MOP); `p_M`, jar default 1.0 |
-| `mop_coin_ledger_max_interactions` | `ape.mopCoinLedgerMaxInteractions` | `MOP_COIN` sub-parameter; the coin's picks per (activity, widget) key, jar default 1, below 1 read as 1; set to 2 on `mop`, `as_mop` and `as_mop_llm` |
+| `mop_coin_ledger_max_interactions` | `ape.mopCoinLedgerMaxInteractions` | `MOP_COIN` sub-parameter; the coin's picks per (activity, widget) key, below 1 read as 1; the paired jar's default is 4 (calibration v6 F1) and no cell states it |
 | `llm_url` | `ape.llmUrl` | `LLM` dependency; required on both LLM cells (INV-APV-38) |
 | `llm_on_new_state` | `ape.llmOnNewState` | `LLM_NEW_STATE` activation |
 | `llm_on_stagnation` | `ape.llmOnStagnation` | `LLM_STAGNATION` activation |
@@ -810,7 +822,7 @@ Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and
 | `llm_breaker_open_ms` | `ape.llmBreakerOpenMs` | `LLM` sub-parameter |
 | `corpus_basis` | `ape.corpusBasis` | deployment provenance, echoed into `RUN_START` and read nowhere ("Corpus Basis Provenance") |
 
-`mop_target_pick_cap` (`ape.mopTargetPickCap`, replaced by `ape.mopCoinLedgerMaxInteractions`, the MOP coin's budget of picks per activity and widget) and `least_visited_priority_tiebreak` (`ape.leastVisitedPriorityTiebreak`, replaced by the scorer-sum tie at X1, which equals APE with zero scorers) are not in the table, because the jar retired their keys and a file carrying either aborts with `retired_key`. The jar has no launcher-mode key, no X1 key and no X3/X4 key — the cadence is fixed and the MOP variant of each extension point is mounted with MOP — so the table carries none. A key the jar does not recognise is not inert: under stage-2 resolution an unknown key, a retired key, or a non-neutral value of an inactive feature aborts before step 1, which is what makes the mapping's contents a correctness property rather than a tidiness one.
+`mop_target_pick_cap` (`ape.mopTargetPickCap`, replaced by `ape.mopCoinLedgerMaxInteractions`, the MOP coin's budget of picks per activity and widget), `least_visited_priority_tiebreak` (`ape.leastVisitedPriorityTiebreak`, replaced by the scorer-sum tie at X1, which equals APE with zero scorers) and `mop_weight_d1..d3` (`ape.mopWeightD1..D3`, replaced by the ladder `ape.mopWeights`) are not in the table, because the jar retired their keys and a file carrying any of them aborts with `retired_key`. The jar has no launcher-mode key, no X1 key and no X3/X4 key — the cadence is fixed and the MOP variant of each extension point is mounted with MOP — so the table carries none. A key the jar does not recognise is not inert: under stage-2 resolution an unknown key, a retired key, or a non-neutral value of an inactive feature aborts before step 1, which is what makes the mapping's contents a correctness property rather than a tidiness one.
 
 `corpus_basis` -> `ape.corpusBasis` is mapped, set by no cell, and supplied per campaign through the tool DSL. It is deployment provenance, not configuration: it names the application list a run was drawn from, as `<corpus-id>:<sha256>` (`CORPUS_BASIS_PATTERN`). The jar recognises the key, echoes it into the trace's opening record and reads it nowhere, so it changes no behaviour. `configure()` validates only the shape — whether the digest matches the list is verified where the list lives, by recomputing it from the file — because a value that is not `<corpus-id>:<sha256>` produces a run whose provenance line looks populated while nothing can be checked against it. The check runs after the DSL fold, so it covers both a variant's own `overrides` dict and an `@corpus_basis=…` parameter. When unstated the key is omitted entirely.
 
@@ -820,7 +832,7 @@ For the cells that mount STATIC or MOP, static analysis data flows from rv-platf
 
 1. rv-experiment runs GATOR static analysis during pre-processing, producing `<apk_name>.json` in `task.results_dir`
 2. `_find_static_analysis_file(task)` locates this JSON by constructing the expected path
-3. `_derive_mop_artifact(task)` projects it into `<apk_name>.mop.json` (format 2) — widget MOP flags and target distances, both MOP-activity sets and the per-activity distances, the handler-class table a gh121 stamp is read through, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON and its `formatVersion` matches the generator's, otherwise deriving and writing atomically. Widget and handler distance lists keep every target within three calls, the distances the jar weighs; an activity's list keeps its three nearest targets. The handler-class table has one record per `reachability[]` class that declares a handler method, matched by exact name and parameter list (INV-DRV-11): `onClick(android.view.View)` fills `click`, `onLongClick(android.view.View)` fills `longclick`, and `java.lang.Object invoke()` / `invoke(java.lang.Object)` fill both. The app callbacks that the stamp names in `rvsec.click` in place of a library dispatcher — `onOptionsItemSelected`, `onNavigationItemSelected`, `onMenuItemClick`, `onMenuItemSelected`, `onPreferenceClick`, `onPreferenceTreeClick`, `onPreferenceChange` and `onClick(android.content.DialogInterface,int)` — are not handler methods and fill no event: the table is keyed by class and cannot carry a handler's family, so a class whose only such methods are those callbacks is not listed, and a tap stamped with it falls through to the widget id key. A class that declares one of them and also a View handler method stays listed through the View method, and a tap stamped with it reads that record, because the stamp names the class, not the method. All methods that fill one event of one class OR their flags and merge their pairs by the minimum per target before the cut. A listed class is listed even when its handler methods carry no pair, and the jar's lookup takes a listed stamped class as its answer without reading the widget's id key. The component trigger surface projects every receiver, service and provider, whatever its `reachesTarget`, because the trigger is a STATIC member whose pool reads no MOP data. Each receiver and service intent filter carries `actions`, `categories` and a reduced `data` member (`schemes`, `hosts`, `paths`, `pathPrefixes`, `mimeTypes`): a component that filters on a scheme or a MIME type matches no intent built from its action alone, and the jar builds one intent from the first scheme, host and MIME type and the first path, or the first path prefix. `ports` and `pathPatterns` are never emitted, empty lists are omitted, and `data` is omitted when all five are empty, so the member is additive and the format stays 2. The source is hashed in chunks (`digest_of_file`) before anything reads it as JSON, so a cache hit never parses it. A miss reads it as a stream of JSON events (`read_analysis_document` with `PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K)`) that folds each method's `targetDistances` into the pairs the artifact can carry (INV-APV-64): the gh120 distance pairs make a document several gigabytes (9.34 GB for the largest of the Study 03 corpus), a whole-document parse peaked at about 3.1 times the file size, and the streamed derive of that document peaked at 685 MiB. The read is strict where the static-analysis parser is tolerant: a document whose root object never closes — a producer killed mid-write, or bytes that stop being UTF-8 JSON partway — raises `RVToolExecutionError` and leaves no artifact, because an interrupted write must not arm a run. `derive_mop_artifact.py` is the single authority for those rules
+3. `_derive_mop_artifact(task)` projects it, at the cell's cut (`_derive_cut()`: 3, or the `mop_weights` ladder's length when it is longer), into `<apk_name>.mop.json` at cut 3 or `<apk_name>.cut<c>.mop.json` at any other cut (format 2) — widget MOP flags and target distances, both MOP-activity sets and the per-activity distances, the handler-class table a gh121 stamp is read through, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON and its `formatVersion` matches the generator's, otherwise deriving and writing atomically. Widget and handler distance lists keep every target within the cut, the distances the jar weighs; an activity's list keeps its three nearest targets whatever the cut. A compact document compacted below the cut (`distancePairs.weighedMax`), or with a malformed marker, and a cut above the document's horizon (`distMax`, 10 when absent) are refused before anything is written (INV-APV-71). The handler-class table has one record per `reachability[]` class that declares a handler method, matched by exact name and parameter list (INV-DRV-11): `onClick(android.view.View)` fills `click`, `onLongClick(android.view.View)` fills `longclick`, and `java.lang.Object invoke()` / `invoke(java.lang.Object)` fill both. The app callbacks that the stamp names in `rvsec.click` in place of a library dispatcher — `onOptionsItemSelected`, `onNavigationItemSelected`, `onMenuItemClick`, `onMenuItemSelected`, `onPreferenceClick`, `onPreferenceTreeClick`, `onPreferenceChange` and `onClick(android.content.DialogInterface,int)` — are not handler methods and fill no event: the table is keyed by class and cannot carry a handler's family, so a class whose only such methods are those callbacks is not listed, and a tap stamped with it falls through to the widget id key. A class that declares one of them and also a View handler method stays listed through the View method, and a tap stamped with it reads that record, because the stamp names the class, not the method. All methods that fill one event of one class OR their flags and merge their pairs by the minimum per target before the cut. A listed class is listed even when its handler methods carry no pair, and the jar's lookup takes a listed stamped class as its answer without reading the widget's id key. The component trigger surface projects every receiver, service and provider, whatever its `reachesTarget`, because the trigger is a STATIC member whose pool reads no MOP data. Each receiver and service intent filter carries `actions`, `categories` and a reduced `data` member (`schemes`, `hosts`, `paths`, `pathPrefixes`, `mimeTypes`): a component that filters on a scheme or a MIME type matches no intent built from its action alone, and the jar builds one intent from the first scheme, host and MIME type and the first path, or the first path prefix. `ports` and `pathPatterns` are never emitted, empty lists are omitted, and `data` is omitted when all five are empty, so the member is additive and the format stays 2. The source is hashed in chunks (`digest_of_file`) before anything reads it as JSON, so a cache hit never parses it. A miss reads it as a stream of JSON events (`read_analysis_document` with `PairPolicy.reduce(cut, DIST_K)`) that folds each method's `targetDistances` into the pairs the artifact can carry (INV-APV-64): the gh120 distance pairs make a document several gigabytes (9.34 GB for the largest of the Study 03 corpus), a whole-document parse peaked at about 3.1 times the file size, and the streamed derive of that document peaked at 685 MiB. The read is strict where the static-analysis parser is tolerant: a document whose root object never closes — a producer killed mid-write, or bytes that stop being UTF-8 JSON partway — raises `RVToolExecutionError` and leaves no artifact, because an interrupted write must not arm a run. `derive_mop_artifact.py` is the single authority for those rules
 4. Only the artifact is pushed, to `/data/local/tmp/mop-artifact.json`. The full JSON stays byte-identical on the host as the archived source every metric reads, and never travels
 5. `_push_properties()` includes `ape.staticDataPath` pointing to the pushed artifact
 6. APE-RV reads the artifact at startup instead of parsing a call graph. Its loader separates the static GUI model (read by STATIC) from the MOP targets (read by MOP), so the same artifact serves `mop`, `as` and the cells that mount both
@@ -882,8 +894,8 @@ and shell execution.
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation (the fixed `ape.preset` / `ape.variant` / `ape.staticDataPath` lines and the 67 entries), the cell variants, the catalog push on the four `as*` cells only, the rejection of a missing `variant` and of the old `mop_data` key, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation (the streaming miss path, and the refusal of a truncated or non-UTF-8 source that leaves no artifact) and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
-| Unit | tests/test_derive_mop_artifact.py | One named test per relocated derivation rule, plus the cryptoapp ground truth in `tests/fixtures/cryptoapp.apk.json`, and the exactness of the streaming reduction: the streamed artifact is byte-identical to the whole-document one, including when a method's nearest targets lie beyond `DIST_WEIGHED_MAX` (INV-APV-64) |
+| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation (the fixed `ape.preset` / `ape.variant` / `ape.staticDataPath` lines and the 64 entries), the weight ladder (`TestWeightLadder`: DSL and list forms, malformed values refused before the device, commas in the file, `mop_weight_d1..d3` refused as unmapped), the cut and the artifact's name (`TestDeriveCut`, `TestCutArtifactsOnTheDevice`), the heap growth limit set after the pushes and before the main command in every cell (`TestHeapGrowthLimit`), the cell variants, the catalog push on the four `as*` cells only, the rejection of a missing `variant` and of the old `mop_data` key, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation (the streaming miss path, and the refusal of a truncated or non-UTF-8 source that leaves no artifact) and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
+| Unit | tests/test_derive_mop_artifact.py | One named test per relocated derivation rule, plus the cryptoapp ground truth in `tests/fixtures/cryptoapp.apk.json`, the cut and its bound by the document's horizon (a cut above `distMax` or a malformed `distMax` refused, `activityDist` independent of the cut), and the exactness of the streaming reduction: the streamed artifact is byte-identical to the whole-document one, including when a method's nearest targets lie beyond `DIST_WEIGHED_MAX` and at a deeper cut (INV-APV-64) |
 | Unit | tests/test_trace_ndjson.py, tests/test_coverage_dump.py, tests/test_clock_logcat_join.py | The offline readers: NDJSON row semantics against `tests/fixtures/trace_ndjson_golden.ndjson` (`v: 1`), `trace_ndjson_groups.ndjson` (`v: 2`, every new decision member, `RUN_END` counters) and `trace_ndjson_v3_header.ndjson` (an unsupported version), coverage-dump parsing including `UICOV` lines without `mopReach`, and heartbeat placement including both routes to `UNALIGNED` |
 | Migration | tests/migration/ | The explicit retirement list, the pinned jar tables (the six cells, their group-block unions and the accepted vocabulary read off the ape source), the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table, and the offline cell gate (`test_cells.py`: the jar's presets are the six cells, and each `cells/<cell>.run_start.json` fixture carries the `preset` and `variant` of `get_variants()`). The one-time regeneration diff that proved each surviving arm's effective configuration unchanged under `preset + overrides` was deleted at owner sign-off (2026-08-07); its baseline and executed result are archived under `docs/gh95-migration-record/`, because a one-time measurement kept running becomes a constant-vs-constant guard (INV-APV-44) |
 

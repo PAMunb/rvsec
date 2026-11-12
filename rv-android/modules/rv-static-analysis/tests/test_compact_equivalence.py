@@ -3,12 +3,13 @@ The compact document parses to the same model as the full one (INV-ANA-89, first
 half).
 
 ``StaticAnalysisParser`` drops every distance member while it reads, so the
-reduction of ``targetDistances``, the ``distancePairs`` marker and the absence of
-whitespace must not reach ``StaticAnalysisData``. The check converts the
+reduction of ``targetDistances`` and the ``distancePairs`` marker must not reach
+``StaticAnalysisData``. The check converts the
 ``cryptoapp.apk.json`` fixture, a full-mode document, and compares what a consumer
 can read from the two models.
 """
 
+import json
 from pathlib import Path
 
 from rv_android_core.domain.static import StaticAnalysisData
@@ -48,9 +49,13 @@ def _model_snapshot(data: StaticAnalysisData) -> dict:
 
 
 def test_fixture_is_a_full_mode_document():
+    # The mode is told by the marker, not by the layout: GATOR writes both modes
+    # without whitespace (INV-ANA-86).
     text = FIXTURE.read_text(encoding="utf-8")
-    assert "distancePairs" not in text
-    assert '\n  "distanceTargets": [' in text
+    document = json.loads(text)
+    assert "distancePairs" not in document
+    assert "distanceTargets" in document
+    assert "\n" not in text
 
 
 def test_compact_fixture_parses_to_the_same_model(tmp_path):

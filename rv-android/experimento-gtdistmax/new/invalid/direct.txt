@@ -1,0 +1,2 @@
+distMax=0 exit=0 wall=28.6s output_file_exists=no output_dir_exists=no
+distMax=ten exit=0 wall=28.9s output_file_exists=no output_dir_exists=no

@@ -22,6 +22,7 @@ from rv_android_core.util.analysis_document import (
 )
 
 from aperv_tool.tools.aperv.derive_mop_artifact import (
+    DEFAULT_DIST_MAX,
     DIST_K,
     DIST_WEIGHED_MAX,
     DerivationError,
@@ -2945,3 +2946,322 @@ def test_streaming_byte_identical_when_nearest_targets_lie_beyond_the_cut(
         }
         assert reduced["<A: void a()>"] == [[0, 4], [1, 7], [2, 8]]
         assert reduced["<A: void d()>"] == [[0, 1], [13, 1], [15, 2], [14, 3]]
+
+
+# ---------------------------------------------------------------------------
+# The weighed cut and the document's horizon (INV-APV-70, INV-APV-71, INV-DRV-10)
+# ---------------------------------------------------------------------------
+
+_LISTENER_HANDLER = "<com.example.Listener: void onClick(android.view.View)>"
+
+
+def _deep_document(**overrides) -> dict:
+    """One widget whose two handlers reach targets from d = 1 to d = 6, and one
+    handler class with pairs at d = 2 and d = 5."""
+    return _document(
+        distanceTargets=_distance_targets(13),
+        reachability=[
+            _reaching_class(
+                "com.example.Handlers",
+                [
+                    _method(
+                        "<A: void a()>",
+                        reaches=True,
+                        distances=[[2, 3], [5, 1], [7, 4], [8, 3]],
+                    ),
+                    _method(
+                        "<A: void b()>",
+                        reaches=True,
+                        distances=[[2, 2], [9, 6], [11, 1], [12, 3]],
+                    ),
+                ],
+            ),
+            _reaching_class(
+                "com.example.Listener",
+                [
+                    _method(
+                        _LISTENER_HANDLER,
+                        name="onClick",
+                        reaches=True,
+                        distances=[[0, 2], [1, 5]],
+                    )
+                ],
+            ),
+        ],
+        windows=[
+            _window(
+                1,
+                "com.example.MainActivity",
+                [
+                    _widget(
+                        "btn_ok",
+                        listeners=[
+                            _listener("click", "<A: void a()>"),
+                            _listener("click", "<A: void b()>"),
+                        ],
+                    ),
+                    _widget("btn_l", listeners=[_listener("click", _LISTENER_HANDLER)]),
+                ],
+            )
+        ],
+        **overrides,
+    )
+
+
+def _btn_ok_click(artifact) -> list:
+    return artifact["widgets"]["com.example.MainActivity"]["btn_ok"]["dist"]["click"]
+
+
+def test_widget_and_handler_lists_carry_every_pair_up_to_the_cut():
+    # Spec scenario "a deeper cut keeps the farther targets": the widget of
+    # "a widget's distance is the minimum over its handlers" derived at cut 6.
+    deep = derive(_deep_document(), cut=6)
+    assert _btn_ok_click(deep) == [
+        [5, 1],
+        [11, 1],
+        [2, 2],
+        [8, 3],
+        [12, 3],
+        [7, 4],
+        [9, 6],
+    ]
+    assert deep["handlers"]["com.example.Listener"]["dist"] == {
+        "click": [[0, 2], [1, 5]]
+    }
+
+    four = derive(_deep_document(), cut=4)
+    assert _btn_ok_click(four) == [[5, 1], [11, 1], [2, 2], [8, 3], [12, 3], [7, 4]]
+    assert four["handlers"]["com.example.Listener"]["dist"] == {"click": [[0, 2]]}
+
+
+def test_default_cut_drops_pairs_beyond_three():
+    artifact = derive(_deep_document())
+    assert _btn_ok_click(artifact) == [[5, 1], [11, 1], [2, 2], [8, 3], [12, 3]]
+    assert artifact["handlers"]["com.example.Listener"]["dist"] == {"click": [[0, 2]]}
+    assert serialize_canonical(artifact) == serialize_canonical(
+        derive(_deep_document(), cut=DIST_WEIGHED_MAX)
+    )
+
+
+def test_activity_dist_keeps_the_three_nearest_whatever_the_cut():
+    by_cut = {
+        cut: derive(_deep_document(), cut=cut)["activityDist"]
+        for cut in range(1, DEFAULT_DIST_MAX + 1)
+    }
+    assert all(pairs == by_cut[DIST_WEIGHED_MAX] for pairs in by_cut.values())
+    assert all(len(pairs) == DIST_K for pairs in by_cut[DIST_WEIGHED_MAX].values())
+
+
+@pytest.mark.parametrize("cut", [0, 11, -1, 3.0, True, "3", None])
+def test_cut_outside_the_default_horizon_is_refused(cut):
+    # Without `distMax` the horizon is DEFAULT_DIST_MAX, 10.
+    with pytest.raises(DerivationError, match="cut"):
+        derive(_deep_document(), cut=cut)
+
+
+@pytest.mark.parametrize(
+    "dist_max, cut, horizon",
+    [(5, 6, 5), (None, 11, 10)],
+    ids=["above-distMax-5", "above-the-default-10"],
+)
+def test_a_cut_above_the_documents_horizon_is_refused_naming_both(
+    dist_max, cut, horizon
+):
+    # Spec scenario "a cut above the document's horizon is refused".
+    document = (
+        _deep_document() if dist_max is None else _deep_document(distMax=dist_max)
+    )
+    with pytest.raises(DerivationError) as raised:
+        derive(document, cut=cut)
+    message = str(raised.value)
+    assert f"horizon {horizon}" in message
+    assert f"got {cut}" in message
+
+
+def test_a_larger_horizon_admits_a_deeper_cut():
+    # The bound is the document's horizon, not DEFAULT_DIST_MAX: a document searched
+    # to 15 takes cut 6, and cut 11.
+    document = _deep_document(distMax=15)
+    assert _btn_ok_click(derive(document, cut=6)) == _btn_ok_click(
+        derive(_deep_document(), cut=6)
+    )
+    assert _btn_ok_click(derive(document, cut=11)) == _btn_ok_click(
+        derive(document, cut=6)
+    )
+    with pytest.raises(DerivationError, match="horizon 15"):
+        derive(document, cut=16)
+
+
+def test_a_horizon_below_the_default_cut_refuses_the_default_cut():
+    # A document analysed with distMax below 3 cannot feed a default cell.
+    with pytest.raises(DerivationError, match="horizon 2"):
+        derive(_deep_document(distMax=2))
+    assert _btn_ok_click(derive(_deep_document(distMax=2), cut=2)) == [
+        [5, 1],
+        [11, 1],
+        [2, 2],
+    ]
+
+
+@pytest.mark.parametrize("dist_max", ["15", True, 0, -1, 1.5, None], ids=repr)
+def test_a_malformed_horizon_is_refused_naming_it(dist_max):
+    # Spec scenario "a malformed horizon in the document is refused". The check
+    # runs right after the one that the document is an object, so it is reached
+    # before the package check: the document below also has no package.
+    document = _deep_document(distMax=dist_max)
+    del document["package"]
+    with pytest.raises(DerivationError) as raised:
+        derive(document)
+    assert "distMax" in str(raised.value)
+    assert repr(dist_max) in str(raised.value)
+
+
+def test_the_cut_and_the_horizon_are_not_written_into_the_artifact():
+    shallow = derive(_deep_document(), cut=3)
+    deep = derive(_deep_document(), cut=6)
+    assert set(shallow) == set(deep)
+    assert shallow["source"] == deep["source"]
+    assert shallow["formatVersion"] == deep["formatVersion"]
+    # A document that records the default horizon derives the artifact of one that
+    # does not: the member is read, never projected.
+    assert serialize_canonical(derive(_deep_document(distMax=10))) == (
+        serialize_canonical(derive(_deep_document()))
+    )
+
+
+def _random_cut_document(rng) -> dict:
+    """A random document with handler classes and widgets, pairs from -1 to 11."""
+    n_targets = rng.randint(0, 12)
+    methods, signatures = [], []
+    for m in range(rng.randint(1, 8)):
+        # onClick/onLongClick(View) fill the handler table; any other name is a
+        # plain listener method that only widgets read.
+        name = rng.choice(["onClick", "onLongClick", f"on{m}"])
+        signature = f"<com.example.H{m}: void {name}(android.view.View)>"
+        pairs = [
+            [rng.randrange(max(n_targets, 1) + 2) - 1, rng.randint(-1, 11)]
+            for _ in range(rng.randint(0, 6))
+        ]
+        methods.append(
+            _method(
+                signature,
+                name=name,
+                reaches=bool(pairs) or rng.random() < 0.3,
+                direct=rng.random() < 0.2,
+                distances=pairs,
+            )
+        )
+        signatures.append(signature)
+    classes = [
+        _reaching_class(f"com.example.H{i}", [method])
+        for i, method in enumerate(methods)
+    ]
+    windows = []
+    for w in range(rng.randint(1, 3)):
+        widgets = [
+            _widget(
+                f"w{w}_{i}",
+                listeners=[
+                    _listener(
+                        rng.choice(["click", "long_click", "touch"]),
+                        rng.choice(signatures),
+                    )
+                    for _ in range(rng.randint(0, 3))
+                ],
+            )
+            for i in range(rng.randint(0, 4))
+        ]
+        windows.append(_window(w + 1, f"com.example.Act{w}", widgets))
+    return _document(
+        distanceTargets=_distance_targets(n_targets),
+        reachability=classes,
+        windows=windows,
+    )
+
+
+def _weighed_lists(artifact) -> dict:
+    lists = {}
+    for activity, widgets in artifact["widgets"].items():
+        for widget, entry in widgets.items():
+            for event, pairs in entry.get("dist", {}).items():
+                lists[("widget", activity, widget, event)] = pairs
+    for class_name, record in artifact["handlers"].items():
+        for event, pairs in record.get("dist", {}).items():
+            lists[("handler", class_name, event)] = pairs
+    return lists
+
+
+def test_cuts_nest_over_random_documents():
+    """
+    INV-DRV-10 at every cut of the default horizon: a widget or handler list holds
+    no pair beyond the cut, and the list at a cut is the prefix of the list at the
+    next one, so deepening the cut only appends the farther targets.
+    """
+    rng = random.Random(20261102)
+    for _ in range(300):
+        document = _random_cut_document(rng)
+        previous = None
+        for cut in range(1, DEFAULT_DIST_MAX + 1):
+            lists = _weighed_lists(derive(document, cut=cut))
+            assert all(d <= cut for pairs in lists.values() for _, d in pairs)
+            if previous is not None:
+                for key, pairs in previous.items():
+                    assert pairs == lists[key][: len(pairs)]
+            previous = lists
+
+
+def test_streaming_reduction_at_a_deeper_cut_is_exact(tmp_path):
+    """
+    INV-APV-64 at a cut other than the default: reduced with the cut, the streamed
+    document derives the whole document's artifact; reduced with the default cut,
+    the pairs between the two cuts beyond the DIST_K nearest are gone. As GATOR
+    writes it, `distanceTargets` precedes `reachability`, which gives the reader the
+    index bound it reduces under.
+    """
+    document = {
+        "distanceTargets": _distance_targets(6),
+        **_document(
+            reachability=[
+                _reaching_class(
+                    "com.example.Listener",
+                    [
+                        _method(
+                            _LISTENER_HANDLER,
+                            name="onClick",
+                            reaches=True,
+                            distances=[[0, 1], [1, 4], [2, 5], [3, 6], [4, 6], [5, 7]],
+                        )
+                    ],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [_widget("b", listeners=[_listener("click", _LISTENER_HANDLER)])],
+                )
+            ],
+        ),
+    }
+    path = tmp_path / "deep.apk.json"
+    path.write_text(json.dumps(document))
+
+    def streamed(reduce_at: int, cut: int) -> dict:
+        reduced, truncated = read_analysis_document(
+            str(path), PairPolicy.reduce(reduce_at, DIST_K)
+        )
+        assert not truncated
+        return derive(reduced, cut=cut)
+
+    whole = derive(document, cut=6)
+    assert serialize_canonical(streamed(6, 6)) == serialize_canonical(whole)
+    assert whole["handlers"]["com.example.Listener"]["dist"]["click"] == [
+        [0, 1],
+        [1, 4],
+        [2, 5],
+        [3, 6],
+        [4, 6],
+    ]
+    assert streamed(DIST_WEIGHED_MAX, 6)["handlers"]["com.example.Listener"]["dist"][
+        "click"
+    ] == [[0, 1], [1, 4], [2, 5]]

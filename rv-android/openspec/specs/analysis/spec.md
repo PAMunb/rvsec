@@ -301,6 +301,8 @@ rv-screen-parser:
 - `-clientParam distancePaths=true|false` — GATOR client parameter; absent or any value other than `true` (case-insensitive) writes no path (source: `RVStaticAnalysisConfig.get_tool_command`, `modules/rv-static-analysis/src/rv_static_analysis/config.py`)
 - `RVStaticAnalysisConfig.distance_paths: bool = False` and `--distance-paths` on the `analyze` and `batch` subcommands (source: the operator)
 - `rv-static-analysis path DOC METHOD [--target I]` — a document written with `distancePaths=true`, a method's Soot signature, and optionally a target index (source: the operator)
+- `-clientParam distMax=<N>` — GATOR client parameter, the horizon of the distance searches. Absent: 10. Present: `N` SHALL be a value `Integer.parseInt` accepts and SHALL be ≥ 1, otherwise the client aborts (source: `RVStaticAnalysisConfig.get_tool_command` in `modules/rv-static-analysis/src/rv_static_analysis/config.py`, or a direct caller of the GATOR jar)
+- `RVStaticAnalysisConfig.dist_max: Optional[int] = None`, constrained to `≥ 1`, and `--dist-max N` on the `analyze` and `batch` subcommands (source: the operator)
 - `AndroidManifest.xml` `<application android:name="…">` — the Application subclass, resolved against the manifest package as activity names are (source: the decoded APK, read by `DefaultXMLParser`)
 - `analysis_timeout: float` -- Timeout in seconds for the analysis tool (default: 600.0). Passed both as `Command.timeout` (Python process-level kill) and `--timeout` (GATOR's internal timeout)
 - `analysis_client_jar: str` -- Path to the analysis client fat JAR (`lib/gator/rvsec-analysis-client.jar`)
@@ -333,9 +335,10 @@ rv-screen-parser:
 - `TargetMethod{className, methodName, params, signature, policy, includeSubtypes, nameIsPattern}` -- Resolved by `MopSpecsTargetSource.load()` from each `MopMethod` (destination: `TargetResolver.resolveInScene` and the direct bytecode scan)
 - `reachability[].methods[].{reachable, reachesTarget, directlyReachesTarget}: bool` -- Per-method flags in the GATOR JSON; the key set does not depend on the specification set (INV-ANA-44). Readers of the raw artefact that tolerate no key change: `static_analysis_parser.py` (the single parse point in `rv-static-analysis`), the gate and sweep scripts under `scripts/`, and `aperv-tool`, which parses `<apk>.json` itself (`analysis/static_artifact.py`, `tools/aperv/derive_mop_artifact.py`, where `method.get("reachesTarget") is True` turns a rename into a silent `False`). The device-side `MopData` reads the derived `*.mop.json`, where the key is renamed `reachesMop`, not this artefact. Two value gates watch these booleans against the `jca` default: `tests/parity/test_reachability_parity.py` (`G_paridade_targets`, the set of signatures with `reachesTarget=true`) and `tests/parity/test_historical_methods_coverage.py` (three methods pinned at `directlyReachesTarget=true`)
 - `distanceTargets: list[{signature: str, kind: "direct" | "boundary"}]` — top-level key in the `.apk.json`: the members of C (`direct`) sorted by signature, followed by the members of B that are not in C (`boundary`) sorted by signature, so index `i` is stable for a given artefact (destination: `aperv-tool` derive, offline analyses)
-- `reachability[].methods[].targetDistances: list[[int, int]]` — in full mode, every pair: `[i, d]`, `i` an index into `distanceTargets`, `1 ≤ d ≤ 10` for a method that is not itself `c`, and `[i, 0]` for `c` itself; sorted by `i`; the key is omitted when the list would be empty (destination: same) In compact mode (the default) the list is reduced per INV-ANA-85.
+- `reachability[].methods[].targetDistances: list[[int, int]]` — in full mode, every pair: `[i, d]`, `i` an index into `distanceTargets`, `1 ≤ d ≤ distMax` (10 when the document carries no `distMax`) for a method that is not itself `c`, and `[i, 0]` for `c` itself; sorted by `i`; the key is omitted when the list would be empty (destination: same). In compact mode (the default) the list is reduced per INV-ANA-85.
 - `<apk_name>.json` in compact mode — the document without whitespace; the top-level member `distancePairs: {weighedMax: 3, k: 3}` written right before `distanceTargets`; each `reachability[].methods[].targetDistances` reduced by INV-ANA-85 and sorted by `i`; every other member as in full mode (destination: `rv-static-analysis` parser, `aperv-tool` derive, offline analyses)
-- `<apk_name>.json` in full mode — today's document: byte for byte up to `transitions`, and the same `transitions` edges, whose order follows identity-hash iteration (INV-ANA-86) (destination: same)
+- `distMax: int` — top-level, only when the run was given `-clientParam distMax=N`: the value `N`, written right after `class_defs_under_key`, so before `distancePairs` in compact mode and before `distanceTargets` in full mode, in both writes of the run (INV-ANA-99) (destination: offline readers of the document, `StaticAnalyzer`'s reuse check, the `aperv-tool` derive, `rv-static-analysis compact`)
+- `<apk_name>.json` in full mode — the document without whitespace, with the members, member order and values of the indented document the client wrote before gh-tbd-gator-full-minified-horizon; the same `transitions` edges, whose order follows identity-hash iteration (INV-ANA-86) (destination: same)
 - `<out.json>` — the converter's output, byte-identical to the compact document GATOR writes for the same analysis (INV-ANA-87) (destination: the operator)
 - `pathMethods: list[str]` — top-level, only with `distancePaths=true`: the Soot signatures of the methods that occur in some step, app and library, sorted by signature; the index space of `distancePaths` (destination: stand-alone readers of the document)
 - `distancePaths: list[[int, int, int]]` — top-level, only with `distancePaths=true`, written right after `reachability`: steps `[i, v, n]`, `i` an index into `distanceTargets`, `v` and `n` indices into `pathMethods`, sorted by `(i, v)`, at most one step per `(i, v)` (destination: same)
@@ -349,7 +352,7 @@ rv-screen-parser:
 - **File System (analysis)**: Creates `{app_name}.json` analysis output file in output directory containing reachability, windows, transitions, and components sections
 - **File System (logcat)**: CoverageTracker creates empty logcat file if it does not exist
 - **GATOR Scene**: `SootClass.setLibraryClass()` demotes every class outside the effective scope key; the demotion is irreversible within the run (INV-ANA-65)
-- **File System (analysis cache)**: a stored artefact whose recorded key differs from the run's effective key is regenerated rather than reused; `--force` discards it before the analysis runs (INV-ANA-70)
+- **File System (analysis cache)**: a stored artefact whose recorded key differs from the run's effective key (INV-ANA-70), or whose recorded horizon differs from the run's requested one or cannot be read (INV-ANA-102), is regenerated rather than reused; `--force` discards it before the analysis runs
 - **Background Thread**: CoverageTracker starts a daemon thread for continuous logcat monitoring; thread terminates on stop() or context manager exit
 - **Logging (logcat parser)**: every counted discard is logged at WARNING with the line number and the counter name; a re-raised file-level exception is logged at ERROR with the line number before propagating
 - **Soot Scene (target matching)**: each declared target owner FQN is force-resolved into the Scene at HIERARCHY level before `canStoreType` is queried (INV-ANA-43)
@@ -376,6 +379,8 @@ rv-screen-parser:
 - `rv-static-analysis path` exits 1 with one stderr line when the document carries no `distancePaths`, when the method is not in the document, or when `--target` names a target the method has no written pair for
 - Static-document read -- none raised to callers. A missing, unreadable or empty source yields an empty `StaticAnalysisData` (INV-ANA-06); a truncated source yields the members read in full (INV-ANA-81); a parsed copy that cannot be written is logged and the parsed model is still returned
 - `rv-static-analysis compact` exits with status 1 and one line on stderr, leaving no output file, when the input is truncated, already compact, carries `distancePaths`, holds a non-integer number, or resolves to the same file as the output; exit status 2 is argparse's usage error
+- `IllegalStateException` from `RvsecAnalysisClient.run`, naming `distMax` and its value, when `distMax` is present and is not an integer ≥ 1; thrown before the client computes or writes anything, it ends the GATOR JVM with a non-zero status and no document (INV-ANA-100)
+- `rv-static-analysis analyze|batch --dist-max N` with `N` not an integer ≥ 1: argparse usage error, exit status 2, GATOR not started; `RVStaticAnalysisConfig(dist_max=N)` with `N < 1`: `pydantic.ValidationError`
 
 ## Invariants
 
@@ -714,7 +719,7 @@ rv-screen-parser:
 
 - **INV-ANA-71**: Generated resource classes MUST leave the denominator at **every** package segment, not only at the scope key's root. The test in `RvsecAnalysisClient.isAppClass` MUST be on the **last segment** of the class name — `R`, `R$*`, `BuildConfig`, `Manifest`, `Manifest$*` — wherever that segment sits under the key: a suffix test against `<key>.R`, `<key>.R$*` and `<key>.BuildConfig` keeps `<key>.<module>.R`, and a key that is an ancestor of the resource namespace escapes it entirely. Measured over the 162 corpus artefacts produced by the root-only test, 505 such classes sat in the denominator (117 in `app.pachli_50` alone, 33 in `com.blacksquircle.ui_10028`), carrying 547 methods of which **zero** are non-trivial: they are constant tables with nothing to cover, and their only effect was to depress `cov_class`. Artefacts produced before this rule and after it are therefore not comparable on `cov_class`. Output of annotation processors (`_Factory`, `_Impl`, `_MembersInjector`, `$$serializer`, `Hilt_*`, `Dagger*`, DataBinding) is deliberately **not** covered: 5,816 such classes carry 36,264 non-trivial methods that execute at runtime, so removing them would redefine the denominator rather than close a leak; that measurement is an open question.
 - **INV-ANA-72**: `_apply_envelope` MUST copy `vfp` into `RvErrorLog.value_fingerprint` and `vcls` into `RvErrorLog.value_class`, and MUST leave both `""` when the key is absent. The parser MUST NOT interpret, validate or classify either value, and MUST NOT branch on the family or label of `code`.
-- **INV-ANA-73**: Each distance search MUST be seeded by exactly one app method: a member of C (the app methods in the `directlyReachesTarget` set) or of B. Library methods MUST NOT seed it. `d(t, t) = 0`, `d ≤ DIST_MAX = 10`, and a method absent from a target's search has no pair for that target.
+- **INV-ANA-73**: Each distance search MUST be seeded by exactly one app method: a member of C (the app methods in the `directlyReachesTarget` set) or of B. Library methods MUST NOT seed it. `d(t, t) = 0`, `d ≤ distMax`, the run's horizon (`TargetDistances.DEFAULT_DIST_MAX = 10` when the run has no `distMax` parameter), and a method absent from a target's search has no pair for that target.
 - **INV-ANA-74**: Every method carrying a non-empty `targetDistances` MUST carry `reachesTarget` or `directlyReachesTarget` `true`: the distance search runs on the same call graph as the reachability search and its seeds are a subset of that search's seeds.
 - **INV-ANA-75**: `distanceTargets`, every `targetDistances` list, and every `FRAGMENT` and `HOSTED` window MUST be present in the pre-WTG artefact, with the same content as in the final artefact of the same run.
 - **INV-ANA-76**: `FRAGMENT` and `HOSTED` windows MUST be named `Host#Owner` and MUST NOT be typed `DIALOG`; their ids MUST be disjoint from WTG node ids, from the client's fallback ids, and from each other.
@@ -727,7 +732,7 @@ rv-screen-parser:
 - **INV-ANA-83**: Parsing `<apk_name>.static.json` SHALL yield a `StaticAnalysisData` equal to the one parsed from its source. The copy SHALL be written only from a source read without truncation, so a truncated source is re-read on every call.
 - **INV-ANA-84**: The parsed copy is read only by `rv-static-analysis`. No module SHALL open a `*.static.json` except through `static_analysis_parser`, and the copy SHALL never be pushed to a device.
 - **INV-ANA-85**: In compact mode, a method's `targetDistances` SHALL hold exactly the pairs `[i, d]` of its full-mode list with `d ≤ COMPACT_WEIGHED_MAX = 3` or with rank `< COMPACT_K = 3` in the order `(d, i)`, sorted by `i`. The key SHALL be present on a method in compact mode iff it is present on that method in full mode. `distanceTargets` SHALL be identical in both modes.
-- **INV-ANA-86**: In full mode the document SHALL be byte-identical to the document the client wrote before gh125 for the same analysis state up to the `transitions` member, its `transitions` SHALL hold the same edges with the same node ids, and it SHALL NOT carry `distancePairs`. The order of the `transitions` edges follows identity-hash iteration over the WTG edges, which a change in the client's code can move; INV-ANA-79 handles the same phenomenon by comparing node ids by content. Measured on `cryptoapp.apk`: identical through byte 68,750, the 35 edges identical, in another order, and each jar deterministic with itself. In compact mode the document SHALL carry `distancePairs` with the values of `COMPACT_WEIGHED_MAX` and `COMPACT_K`, in both the pre-WTG write and the final write.
+- **INV-ANA-86**: In full mode the document SHALL contain no whitespace between tokens (Gson `JsonWriter` with no indent set), and SHALL hold the content of the indented document the client wrote for the same analysis state before gh-tbd-gator-full-minified-horizon: parsed, the two SHALL have the same top-level members in the same order and equal values up to the `transitions` member. Its `transitions` SHALL hold the same edges with the same node ids, and it SHALL NOT carry `distancePairs`. The order of the `transitions` edges follows identity-hash iteration over the WTG edges, which a change in the client's code can move; INV-ANA-79 handles the same phenomenon by comparing node ids by content. In compact mode the document SHALL carry `distancePairs` with the values of `COMPACT_WEIGHED_MAX` and `COMPACT_K`, in both the pre-WTG write and the final write.
 - **INV-ANA-87**: For a full-mode document `F` and the compact-mode document `C` that GATOR writes for the same analysis state, `rv-static-analysis compact F` SHALL write `C` byte for byte.
 - **INV-ANA-88**: `TargetDistances.COMPACT_WEIGHED_MAX` and `TargetDistances.COMPACT_K` (Java), the converter's constants (`rv-static-analysis`) and `DIST_WEIGHED_MAX` and `DIST_K` (`aperv-tool`) SHALL be pairwise equal. A parity test under `tests/parity/` SHALL fail when any of them differs.
 - **INV-ANA-89**: For the same analysis state, the `StaticAnalysisData` parsed from the compact document SHALL equal the one parsed from the full document, and the `*.mop.json` derived from the compact document SHALL be byte-identical to the one derived from the full document apart from its `source` object: `source.digest` is the sha256 of the input file and so names which of the two documents the artifact came from. Given the same provenance, `derive()` writes the same bytes from either document.
@@ -744,6 +749,10 @@ rv-screen-parser:
 - **INV-ANA-96**: After `EmptySiteEdges.addTo`, at every instance-invoke site of a concrete app method that held no outgoing call-graph edge after SPARK and `LambdaEdges`, the call graph SHALL hold an edge to each concrete app method obtained by dispatching the invoked method over the class the invoke instruction names and its app subtypes (the resolved method itself for a special invoke). A site that held an edge SHALL keep exactly its edges, and no edge to a library method SHALL be added. Those edges SHALL be in the call graph for the reachability search, the distances and the distance paths only: before the fragment windows and the WTG are built, the client SHALL remove every edge `EmptySiteEdges.addTo` added, so `windows` and `transitions` equal what the call graph without them gives.
 - **INV-ANA-97**: `read_analysis_document` SHALL drop `pathMethods` and `distancePaths` under every `PairPolicy`. The `StaticAnalysisData` parsed from a document and the `*.mop.json` derived from it SHALL be the same with and without those members.
 - **INV-ANA-98**: For a method `m` and a target `i` it carries a written pair `[i, d]` for, `rv-static-analysis path` SHALL print exactly the `d + 1` methods of the chain INV-ANA-91 defines, from `m` to `t_i`, in order.
+- **INV-ANA-99**: A document SHALL carry the top-level member `distMax` if and only if its run was given the client parameter `distMax`, and its value SHALL be the parameter's value. The member SHALL be in both writes of the run and in both output modes, also when the distance pass failed and `distanceTargets` is absent. A document without `distMax` was computed with the horizon `DEFAULT_DIST_MAX = 10`.
+- **INV-ANA-100**: When the client parameter `distMax` is present and its value is not an integer ≥ 1, the client SHALL NOT compute distances with `DEFAULT_DIST_MAX` or any other horizon in its place: the GATOR JVM SHALL exit with a non-zero status, and the run SHALL write no document.
+- **INV-ANA-101**: For the same analysis state, a run without `distMax` SHALL write, in compact mode, the content of the document written before gh-tbd-gator-full-minified-horizon, and in full mode the content INV-ANA-86 states. A run given `distMax=10` SHALL write the same content plus the member `distMax: 10`. In both comparisons the `transitions` edges SHALL be the same, but their order follows identity-hash iteration and may differ (INV-ANA-86), and window and widget node ids are compared by content (INV-ANA-79).
+- **INV-ANA-102**: `StaticAnalyzer` SHALL NOT reuse a stored `<apk_name>.json` whose recorded horizon (`distMax`, 10 when absent) differs from the run's requested horizon (`dist_max`, 10 when `None`), nor one whose top-level members before the first post-scope member cannot be read. The check SHALL read no further than the first top-level member after the scope block.
 
 ## Requirements
 
@@ -2230,8 +2239,9 @@ document (INV-ANA-81 governs the parser only).
 Every metric computation, gate and offline consolidation path SHALL read the full static-analysis JSON
 and logcat exclusively. "The full JSON" is the analysis document `<apk_name>.json` in either output mode
 (Requirement: Compact and Full Output Modes of the Analysis Document), as opposed to the derived
-`*.mop.json`. The two modes differ only in whitespace, in `distancePairs` and in which `targetDistances`
-pairs they carry, and no metric reads any of those. On the host paths that go through
+`*.mop.json`. The two modes differ only in `distancePairs` and in which `targetDistances`
+pairs they carry. A run's horizon changes only `distMax`, the pairs and, when `distancePaths` is on, `pathMethods`
+and `distancePaths`. No metric reads any of those. On the host paths that go through
 `static_analysis_parser.read_static_analysis_files`, "the full JSON" includes its parsed copy
 `<apk_name>.static.json` when the copy's recorded digest matches the source (INV-ANA-82): the copy is the
 source document without `distanceTargets` and `targetDistances`, which no metric reads, and it parses to
@@ -2576,7 +2586,7 @@ The consequence is specific to this change: a re-run whose scope-key policy chan
 
 ### Requirement: Per-Target Call-Graph Distance (FR06)
 
-The client SHALL compute, after the reachability search and before the pre-WTG write, one reverse breadth-first search per direct caller `c ∈ C` over the call graph with self-loops dropped (the graph the reachability search walks, lambda edges and empty-site edges included). Each search SHALL visit the callers of a method in the order of their signatures. The order changes no distance, since a breadth-first level does not depend on it; it fixes which of several equally short paths a search finds first, which the distance paths record (INV-ANA-92). The search SHALL stop at depth `DIST_MAX = 10` and SHALL record the depth at which it first visits each app method. C SHALL be the app methods in the `directlyReachesTarget` set, sorted by signature, and SHALL be written as `distanceTargets`; each app method's pairs SHALL be written as `targetDistances` inside its `reachability[].methods[]` entry. The keys SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
+The client SHALL compute, after the reachability search and before the pre-WTG write, one reverse breadth-first search per direct caller `c ∈ C` over the call graph with self-loops dropped (the graph the reachability search walks, lambda edges and empty-site edges included). Each search SHALL visit the callers of a method in the order of their signatures. The order changes no distance, since a breadth-first level does not depend on it; it fixes which of several equally short paths a search finds first, which the distance paths record (INV-ANA-92). The search SHALL stop at depth `distMax`, the run's horizon (Requirement: Distance Horizon Parameter; `DEFAULT_DIST_MAX = 10` when the run has no `distMax` parameter), and SHALL record the depth at which it first visits each app method. C SHALL be the app methods in the `directlyReachesTarget` set, sorted by signature, and SHALL be written as `distanceTargets`; each app method's pairs SHALL be written as `targetDistances` inside its `reachability[].methods[]` entry. The keys SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
 
 Which of a method's pairs are written depends on the output mode (Requirement: Compact and Full Output Modes of the Analysis Document). Full mode writes every pair the searches recorded. Compact mode, the default, writes the pairs at `d ≤ 3` and the 3 nearest by `(d, i)` (INV-ANA-85). The searches themselves do not depend on the mode.
 
@@ -2596,9 +2606,13 @@ The graph is the whole call graph, not the subgraph induced by app methods. Both
 - **AND** `Net.connect`'s `reachesTarget` MUST be `true`, as before this change
 
 #### Scenario: Distance beyond the cap
-- **WHEN** an app method reaches `c` only through a call chain of 11 edges
+- **WHEN** the run has no `distMax` parameter and an app method reaches `c` only through a call chain of 11 edges
 - **THEN** that method MUST NOT carry a pair for `c`
 - **AND** its `reachesTarget` MUST still be `true`
+
+#### Scenario: Distance within a horizon the run sets
+- **WHEN** the run has `-clientParam distMax=15` and an app method reaches `c` only through a call chain of 11 edges
+- **THEN** that method MUST carry `[i, 11]` for `c` in full mode
 
 #### Scenario: A distant pair is written only in full mode
 - **WHEN** a method is 6 calls from target `i` and 1, 2 and 3 calls from three other targets
@@ -2618,7 +2632,7 @@ The paths SHALL be computed by `TargetDistances` in a second pass, after the dis
 - every pair in full mode;
 - the pairs `TargetDistances.compact` keeps in compact mode.
 
-Then, for each target `i` that one of those pairs names, it repeats the reverse search from target `i` and records, for each method first visited from a callee, that callee. The pass SHALL then follow the recorded callees from each written pair's method down to the target, and SHALL emit each step `[i, v, n]` on those chains once.
+Then, for each target `i` that one of those pairs names, it repeats the reverse search from target `i`, with the horizon of the distance pass (Requirement: Distance Horizon Parameter), and records, for each method first visited from a callee, that callee. The pass SHALL then follow the recorded callees from each written pair's method down to the target, and SHALL emit each step `[i, v, n]` on those chains once.
 
 `pathMethods` SHALL hold the signatures of the methods that appear in some step, sorted by signature. `distancePaths` SHALL hold the steps with `v` and `n` as indices into it, sorted by `(i, v)`.
 
@@ -2671,7 +2685,7 @@ It SHALL exit 1 with one line on stderr naming the document and the reason when:
 - `METHOD` carries no pair for the target `--target` names;
 - a chain breaks (a step is missing, or a chain does not have `d` steps): the document does not satisfy INV-ANA-91.
 
-A method with no pair at all exits 0 and prints nothing. It is a valid answer: the method reaches no target within `DIST_MAX`.
+A method with no pair at all exits 0 and prints nothing. It is a valid answer: the method reaches no target within the document's horizon (`distMax`, or 10 when the document does not carry it).
 
 The subcommand exists because the steps are indices into a table and are not readable by eye. Reading them in its own pass keeps the campaign reader's contract unchanged. It holds the method table and the steps, which for a compact document are a few times the size of the pairs (about 0.1 MB for `com.kin.easynotes_14`).
 
@@ -2878,18 +2892,19 @@ The copy exists because one document is read many times on one host: once per ta
 
 ### Requirement: Compact and Full Output Modes of the Analysis Document (FR04, FR06, NFR05, NFR08)
 
-`RvsecAnalysisClient` SHALL read the client parameter `fullOutput` the way it reads `skipWtg`. When the parameter is `true` (case-insensitive) the client SHALL write **full** output: today's document, indented by two spaces, every `targetDistances` pair up to `DIST_MAX = 10`, and no `distancePairs` member (INV-ANA-86). In every other case, including when the parameter is absent, the client SHALL write **compact** output:
+`RvsecAnalysisClient` SHALL read the client parameter `fullOutput` the way it reads `skipWtg`. When the parameter is `true` (case-insensitive) the client SHALL write **full** output: every `targetDistances` pair the searches recorded, up to the run's horizon (Requirement: Distance Horizon Parameter), and no `distancePairs` member (INV-ANA-86). In every other case, including when the parameter is absent, the client SHALL write **compact** output:
 
-- no indentation and no whitespace between tokens (Gson `JsonWriter` with no indent set);
-- the top-level member `distancePairs: {"weighedMax": 3, "k": 3}`, written immediately before `distanceTargets`, after the scope members (`package`, `mainActivity`, `codePackage`, `codePackageSource`, `class_defs_under_key`); it is written even when the distance pass failed and `distanceTargets` is absent, because it describes the document, not the pass;
+- the top-level member `distancePairs: {"weighedMax": 3, "k": 3}`, written immediately before `distanceTargets`, after the scope members (`package`, `mainActivity`, `codePackage`, `codePackageSource`, `class_defs_under_key`) and after `distMax` when the run carries it; it is written even when the distance pass failed and `distanceTargets` is absent, because it describes the document, not the pass;
 - each method's `targetDistances` reduced to the pairs at `d ≤ COMPACT_WEIGHED_MAX` and the `COMPACT_K` nearest by `(d, i)`, sorted by `i` (INV-ANA-85);
 - every other member identical to full mode.
 
+Both modes SHALL be written with no indentation and no whitespace between tokens (Gson `JsonWriter` with no indent set). The two modes differ in the pairs they keep and in the marker, not in their serialisation. The full mode is not indented because indentation is most of a full document's size: an indented pair spans four lines and about 70 bytes, against about 9 bytes without whitespace, and in the 2.697 GB full document of `org.wikipedia_50595.apk` (measured on 2026-11-11) about 86 % of the bytes were indentation. Every reader of the document parses it as JSON, so none depends on its layout. A full document therefore reproduces the content of a document published in the indented form, compared after parsing, and not its bytes (INV-ANA-86).
+
 The mode SHALL apply to both writes of a run, the pre-WTG write (INV-ANA-75) and the final write. A run never mixes the two.
 
-The reduction is the one the MOP derive applies (`aperv` D15/D18: the jar weighs a pair only up to `d = 3`, and `activityDist` keeps the 3 nearest), and it is exact for that consumer. A dropped pair has `k` targets ahead of it in its own method, and those targets stay ahead of it after any merge by the minimum distance. Each target's search records one distance per method, so a method's full list already holds one pair per target, and reducing it needs no merge. Because the nearest pair always survives, a method keeps `targetDistances` in compact mode exactly when it carries the key in full mode, and INV-ANA-74 holds in both modes. The constants SHALL be declared in `TargetDistances` beside `DIST_MAX` (INV-ANA-88). The marker keys `distancePairs`, `weighedMax` and `k` SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
+The reduction is the one the MOP derive applies (`aperv` D15/D18: the jar weighs a pair only up to `d = 3`, and `activityDist` keeps the 3 nearest), and it is exact for that consumer. A dropped pair has `k` targets ahead of it in its own method, and those targets stay ahead of it after any merge by the minimum distance. Each target's search records one distance per method, so a method's full list already holds one pair per target, and reducing it needs no merge. Because the nearest pair always survives, a method keeps `targetDistances` in compact mode exactly when it carries the key in full mode, and INV-ANA-74 holds in both modes. The constants SHALL be declared in `TargetDistances` beside `DEFAULT_DIST_MAX` (INV-ANA-88). The marker keys `distancePairs`, `weighedMax` and `k` SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
 
-`RVStaticAnalysisConfig` SHALL carry `full_output: bool = False`. When it is `True`, `get_tool_command` SHALL append `-clientParam fullOutput=true`, and otherwise SHALL append nothing for the mode. The `analyze` and `batch` subcommands SHALL expose `--full-output` and set the field. The parser, the parsed-copy cache (INV-ANA-82, INV-ANA-83) and the `aperv-tool` derive SHALL read both modes without being told which mode they read. The cache copies the `distancePairs` member like any other top-level member.
+`RVStaticAnalysisConfig` SHALL carry `full_output: bool = False`. When it is `True`, `get_tool_command` SHALL append `-clientParam fullOutput=true`, and otherwise SHALL append nothing for the mode. The `analyze` and `batch` subcommands SHALL expose `--full-output` and set the field. The parser, the parsed-copy cache (INV-ANA-82, INV-ANA-83) and, at its default cut of 3, the `aperv-tool` derive SHALL read both modes without being told which mode they read; a cell whose ladder deepens the cut refuses a compact document (`aperv` INV-APV-71). The cache copies the `distancePairs` member like any other top-level member.
 
 #### Scenario: compact is the default
 - **WHEN** `rv-static-analysis analyze --apk cryptoapp.apk` runs without `--full-output`
@@ -2901,7 +2916,13 @@ The reduction is the one the MOP derive applies (`aperv` D15/D18: the jar weighs
 #### Scenario: full output on request
 - **WHEN** `rv-static-analysis analyze --apk cryptoapp.apk --full-output` runs
 - **THEN** the GATOR command line SHALL contain `-clientParam fullOutput=true`
-- **AND** the document SHALL be indented by two spaces, SHALL carry every pair up to `d = 10` and SHALL NOT carry `distancePairs`
+- **AND** the document SHALL contain no newline character, SHALL carry every pair up to `d = 10` and SHALL NOT carry `distancePairs`
+
+#### Scenario: the full document keeps the content of the indented one
+- **WHEN** GATOR analyses `cryptoapp.apk` in full mode with this change's jar, and `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json` is the full-mode document the jar before it wrote for the same APK and target set
+- **THEN** the new document SHALL contain no newline character
+- **AND** parsed, the two SHALL have the same top-level members in the same order and equal values up to `transitions`, window and widget node ids compared by content (INV-ANA-79)
+- **AND** their `transitions` SHALL hold the same edges (INV-ANA-86)
 
 #### Scenario: a method far from most targets keeps its three nearest
 - **WHEN** a method's full list is `[[0, 7], [1, 5], [2, 9], [3, 6], [4, 10]]`
@@ -2912,7 +2933,7 @@ The reduction is the one the MOP derive applies (`aperv` D15/D18: the jar weighs
 - **THEN** its compact list SHALL be `[[0, 1], [1, 3], [2, 2], [3, 3]]`
 
 #### Scenario: the derive cannot tell the two modes apart
-- **WHEN** `aperv-tool` derives the MOP artifact once from the full document and once from the compact document of the same analysis of `org.wikipedia_50595.apk`
+- **WHEN** `aperv-tool` derives the MOP artifact at its default cut once from the full document and once from the compact document of the same analysis of `org.wikipedia_50595.apk`
 - **THEN** the two `*.mop.json` files SHALL be byte-identical apart from `source.digest`, which is the sha256 of each input file
 - **AND** the two `StaticAnalysisData` returned by `StaticAnalysisParser` SHALL be equal (INV-ANA-89)
 
@@ -2963,3 +2984,114 @@ The output SHALL be written to a temporary file in the directory of `OUTPUT` and
 - **WHEN** the input carries `distancePaths`
 - **THEN** the converter SHALL exit 1 with a message naming the input and saying that a compact document with paths is written by GATOR with `distancePaths=true`
 - **AND** `OUTPUT` SHALL NOT exist afterwards
+
+### Requirement: Distance Horizon Parameter (FR06, NFR05)
+
+`RvsecAnalysisClient` SHALL read the client parameter `distMax`, and `TargetDistances` SHALL stop every reverse search at that depth: each target's search in the distance pass and the repeated searches of the distance-path pass. Without the parameter the horizon SHALL be `TargetDistances.DEFAULT_DIST_MAX = 10`, declared beside `COMPACT_WEIGHED_MAX` and `COMPACT_K`. The value SHALL have no upper bound.
+
+#### Scenario: no parameter keeps the default horizon
+- **WHEN** GATOR runs in full mode without `-clientParam distMax`
+- **THEN** no method SHALL carry a pair with `d > 10`
+
+#### Scenario: a larger horizon writes a farther pair
+- **WHEN** GATOR runs in full mode with `-clientParam distMax=15`, and an app method `M` reaches `distanceTargets[i]` through a shortest call chain of 12 edges
+- **THEN** `M` SHALL carry `[i, 12]`
+
+#### Scenario: a far method appears in the compact document under a larger horizon
+- **WHEN** a method's shortest chains reach targets 0, 1, 2 and 3 in 11, 12, 13 and 14 calls, and no other target within 15
+- **THEN** in compact mode without `distMax` it SHALL carry no `targetDistances` key
+- **AND** in compact mode with `distMax=15` it SHALL carry `[[0, 11], [1, 12], [2, 13]]`
+
+#### Scenario: the parsed data does not depend on the horizon
+- **WHEN** the same APK is analysed once without `distMax` and once with `distMax=15`
+- **THEN** the two `StaticAnalysisData` returned by `StaticAnalysisParser` SHALL be equal
+
+### Requirement: An Invalid Distance Horizon Stops the Run (FR06, NFR05)
+
+When `distMax` is present and `Integer.parseInt` rejects its value or the value is below 1, `RvsecAnalysisClient.run` SHALL throw `IllegalStateException` with a message naming `distMax` and the value as given, before it computes or writes anything. The GATOR JVM then exits with a non-zero status and the run writes no document. The client SHALL NOT fall back to `DEFAULT_DIST_MAX` (INV-ANA-100).
+
+#### Scenario: an invalid value given to GATOR directly aborts the run
+- **WHEN** the GATOR jar runs `RvsecAnalysisClient` with `-clientParam distMax=0`, or with `-clientParam distMax=ten`
+- **THEN** `run` SHALL throw `IllegalStateException` whose message contains `distMax` and the given value
+- **AND** the JVM SHALL exit with a non-zero status
+- **AND** the run SHALL write no document
+
+### Requirement: The Document Records a Given Horizon (FR06, NFR08)
+
+When the run is given `distMax`, the client SHALL write the top-level member `distMax` with its value, right after `class_defs_under_key`, in both writes of the run and in both output modes, also when the distance pass fails (INV-ANA-99). Without the parameter it SHALL write no such member, and a document without it was computed with 10. The key SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
+
+#### Scenario: a given horizon is recorded in full mode
+- **WHEN** GATOR runs in full mode with `-clientParam distMax=15`
+- **THEN** the top-level member keys SHALL begin, in order, `package`, `mainActivity`, `codePackage`, `codePackageSource`, `class_defs_under_key`, `distMax`, `distanceTargets`
+- **AND** `distMax` SHALL equal `15`
+
+#### Scenario: the horizon sits before the compact marker
+- **WHEN** GATOR runs in compact mode with `-clientParam distMax=15`
+- **THEN** the top-level member keys SHALL begin, in order, `package`, `mainActivity`, `codePackage`, `codePackageSource`, `class_defs_under_key`, `distMax`, `distancePairs`, `distanceTargets`
+
+#### Scenario: no parameter writes no member
+- **WHEN** GATOR runs without `-clientParam distMax`, in either mode
+- **THEN** the document SHALL NOT carry a top-level `distMax` member
+
+#### Scenario: the default value passed explicitly adds only the member
+- **WHEN** the same APK is analysed once without `distMax` and once with `-clientParam distMax=10`, in the same output mode
+- **THEN** the two documents SHALL differ only by the member `distMax: 10`, which only the second carries (INV-ANA-101), window and widget node ids compared by content (INV-ANA-79)
+
+#### Scenario: the member survives a failed distance pass
+- **WHEN** GATOR runs with `-clientParam distMax=15` and the distance pass throws, so `distanceTargets` is absent
+- **THEN** the document SHALL still carry `distMax: 15` right after `class_defs_under_key`
+
+#### Scenario: the converter keeps the horizon
+- **WHEN** `rv-static-analysis compact full.json out.json` runs on a full document written with `-clientParam distMax=15`
+- **THEN** `out.json` SHALL carry `distMax: 15` right before `distancePairs`
+- **AND** `out.json` SHALL be the compact document GATOR writes with `distMax=15` for the same analysis state (INV-ANA-87)
+
+### Requirement: `rv-static-analysis` Passes the Distance Horizon (NFR05)
+
+`RVStaticAnalysisConfig` SHALL carry `dist_max: Optional[int] = None`, constrained by Pydantic to `≥ 1`. When it is set, `get_tool_command` SHALL append `-clientParam distMax=<value>`; when it is `None`, it SHALL append nothing for the horizon. The `analyze` and `batch` subcommands SHALL expose `--dist-max N`, parsed as an integer ≥ 1. Any other value SHALL be an argparse usage error (exit status 2), and GATOR SHALL NOT be started.
+
+#### Scenario: the option reaches the command
+- **WHEN** `rv-static-analysis analyze --apk app.apk --dist-max 15` builds the GATOR command
+- **THEN** the command SHALL contain `-clientParam distMax=15`
+- **AND** without `--dist-max` it SHALL contain no `distMax` parameter
+
+#### Scenario: an invalid value is refused before GATOR starts
+- **WHEN** `rv-static-analysis analyze --apk cryptoapp.apk --dist-max 0` runs, or the same with `--dist-max ten`
+- **THEN** the command SHALL exit with status 2 and an argparse message naming `--dist-max`
+- **AND** no GATOR process SHALL be started
+
+#### Scenario: the Pydantic boundary refuses a horizon below one
+- **WHEN** `RVStaticAnalysisConfig(dist_max=0, ...)` is constructed
+- **THEN** it SHALL raise `pydantic.ValidationError`
+
+### Requirement: A Stored Artefact Is Reused Only Under Its Own Horizon (FR04, NFR05)
+
+`StaticAnalyzer._execute_command` SHALL reuse a stored `<apk_name>.json` only when its recorded horizon (`distMax`, 10 when absent) equals the run's (`dist_max`, 10 when `None`). Otherwise it SHALL log a warning naming both, remove the document and run the analysis (INV-ANA-102). It SHALL read the recorded horizon in streaming from the start of the document, stopping at the first top-level member after the scope block. It SHALL NOT compare output modes.
+
+#### Scenario: a stored document of another horizon is regenerated
+- **WHEN** `<apk_name>.json` was written with `distMax: 15` and the run asks for `--dist-max 10`, or for no horizon
+- **THEN** the run SHALL log a warning naming 15 and 10
+- **AND** it SHALL run GATOR and replace the document
+
+#### Scenario: a stored document without the member counts as 10
+- **WHEN** `<apk_name>.json` carries no `distMax` and the run asks for `--dist-max 12`
+- **THEN** the run SHALL regenerate the document
+- **AND** the same document SHALL be reused by a run that asks for no horizon or for `--dist-max 10`
+
+#### Scenario: the same horizon is reused without reading the whole document
+- **WHEN** a 2.7 GB `<apk_name>.json` carries `distMax: 15` and the run asks for `--dist-max 15` under the same scope key
+- **THEN** the document SHALL be reused
+- **AND** the horizon check SHALL stop reading at the top-level member that follows `distMax`
+
+#### Scenario: the output mode is not compared
+- **WHEN** a compact `<apk_name>.json` without `distMax` is on disk and the run asks for `--full-output` and no horizon
+- **THEN** the document SHALL be reused
+
+#### Scenario: a document whose first members cannot be read is regenerated
+- **WHEN** `<apk_name>.json` on disk is empty, or holds bytes that are not JSON before its scope block ends
+- **THEN** the run SHALL log a warning naming the file
+- **AND** it SHALL run GATOR and replace the document
+
+#### Scenario: a truncated document keeps its horizon readable
+- **WHEN** `<apk_name>.json` carries `distMax: 15` and ends inside `transitions` because GATOR timed out, and the run asks for `--dist-max 15`
+- **THEN** the horizon check SHALL read 15 and SHALL NOT be the reason the document is regenerated

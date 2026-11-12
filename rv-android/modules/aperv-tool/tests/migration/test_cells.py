@@ -19,6 +19,7 @@ from typing import Any, Dict
 
 import pytest
 
+from aperv_tool.tools.aperv.derive_mop_artifact import DIST_WEIGHED_MAX
 from aperv_tool.tools.aperv.tool import (
     APERV_PROPERTY_MAPPING,
     DEVICE_ARTIFACT_PATH,
@@ -143,32 +144,58 @@ class TestCellFixtures:
 
 
 class TestLedgerBudget:
-    """The three MOP cells run the coin's ledger at 2, a key their fixtures leave at the default.
+    """The MOP cells rely on the jar's calibrated ledger default.
 
-    No group block states `ape.mopCoinLedgerMaxInteractions`, so each MOP fixture carries the
-    jar's default (1) by omission, and the device echo of the cell is its fixture plus exactly
-    this one `params` entry, with the digest left out because it hashes every plan value
-    (design D18).
+    No variant states `mop_coin_ledger_max_interactions`, and no group block states
+    `ape.mopCoinLedgerMaxInteractions`, so a MOP cell runs the coin's ledger at the
+    jar's default and its device echo is its fixture on every member, digest included.
+    The jar resolves an unstated key of a mounted feature to its default, so the budget
+    the cells run is whatever the jar's key table says: calibration v6's F1 value on the
+    jar this tool pairs with, 1 on a jar without the F1 defaults. Checking the default
+    here is what tells the two jars apart before a device runs.
     """
 
-    @pytest.mark.parametrize("cell", ("mop", "as_mop", "as_mop_llm"))
-    def test_the_ledger_override_is_a_key_the_jar_accepts_away_from_its_default(
-        self, ape_repo, cell
-    ):
-        overrides = ApeRVTool.get_variants()[cell]["overrides"]
+    # Calibration v6's finalist F1 (`ape` `KeyOwnership`, gh-tbd-mop-defaults-f1).
+    CALIBRATED_LEDGER_DEFAULT = "4"
+
+    def test_the_jar_default_is_the_calibrated_budget(self, ape_repo):
         key = APERV_PROPERTY_MAPPING["mop_coin_ledger_max_interactions"]
         spec = load_key_specs(ape_repo)[key]
         assert spec.value_type == "INT"
-        assert spec.default == "1"
-        assert overrides["mop_coin_ledger_max_interactions"] == 2
+        assert spec.default == self.CALIBRATED_LEDGER_DEFAULT
+
+    @pytest.mark.parametrize("variant", ("mop", "as_mop", "as_mop_llm", "mop_nolaunch"))
+    def test_no_mop_variant_states_the_ledger_budget(self, variant):
+        overrides = ApeRVTool.get_variants()[variant]["overrides"]
+        assert "mop_coin_ledger_max_interactions" not in overrides
+
+    @pytest.mark.parametrize("cell", ("mop", "as_mop", "as_mop_llm"))
+    def test_no_mop_fixture_carries_the_ledger_budget(self, ape_repo, cell):
+        key = APERV_PROPERTY_MAPPING["mop_coin_ledger_max_interactions"]
         assert key not in _fixture(ape_repo, cell)["params"]
+
+
+class TestDefaultLadder:
+    """The jar's default ladder fits the artifact a cell without a ladder derives.
+
+    No cell states `mop_weights`, so `_derive_cut` derives the artifact at
+    `DIST_WEIGHED_MAX` and the jar weighs the pairs with its default `ape.mopWeights`.
+    Element l of the ladder weighs level l of the artifact's lists, so a default with
+    more levels than `DIST_WEIGHED_MAX` would leave its deeper levels with no pairs, and
+    no other check would say so before a device runs.
+    """
+
+    def test_the_jar_default_ladder_fits_the_default_cut(self, ape_repo):
+        spec = load_key_specs(ape_repo)[APERV_PROPERTY_MAPPING["mop_weights"]]
+        assert spec.value_type == "INT_LIST"
+        assert len(spec.default.split(",")) <= DIST_WEIGHED_MAX
 
 
 class TestAblationVariant:
     """`mop_nolaunch` runs the `mop` preset under its own name, without a fixture.
 
-    Its device echo is the `mop` fixture with `variant`, the ledger entry and the launcher's
-    effect set apart and the digest left out, because the digest hashes every plan value.
+    Its device echo is the `mop` fixture with `variant` and the launcher's effect set
+    apart and the digest left out, because the digest hashes every plan value.
     Offline, what can be checked is that it names a preset the jar ships and that the key it
     adds is one the jar accepts, with the type and the meaning the variant relies on.
     """

@@ -2,12 +2,14 @@
 Tests for the offline conversion of a full-mode document to the compact form
 (``rv_static_analysis.compact``, INV-ANA-85, INV-ANA-87).
 
-Inputs are small synthetic full-mode documents laid out as GATOR writes them:
-indented by two spaces, scope members first, then ``distanceTargets``,
-``components``, ``reachability``, ``windows``, ``transitions`` and the
-``complete`` sentinel. Expected escapes are written out literally from Gson's
-``JsonWriter`` table rather than computed with ``json.dumps``, so the test does
-not share the implementation's assumption.
+Inputs are small synthetic full-mode documents in GATOR's member order: scope
+members first (``distMax`` last among them when the run was given one), then
+``distanceTargets``, ``components``, ``reachability``, ``windows``,
+``transitions`` and the ``complete`` sentinel. GATOR writes them without
+whitespace; most inputs here are written with ``indent=2``, which the converter,
+a JSON reader, does not see. Expected escapes are written out literally from
+Gson's ``JsonWriter`` table rather than computed with ``json.dumps``, so the
+test does not share the implementation's assumption.
 """
 
 import decimal
@@ -156,6 +158,37 @@ def test_marker_goes_right_before_components_without_distance_targets(tmp_path):
         "transitions",
         "complete",
     ]
+
+
+def test_dist_max_is_kept_right_before_the_marker(tmp_path):
+    """A full document written with `distMax=15` carries the member right after
+    `class_defs_under_key`; the compact form keeps it there, before the marker,
+    where GATOR's compact document has it (INV-ANA-87, INV-ANA-99)."""
+    full = _full_document([_method("a", [[0, 1]])])
+    document = {}
+    for key, value in full.items():
+        document[key] = value
+        if key == "class_defs_under_key":
+            document["distMax"] = 15
+
+    _, converted = _convert(tmp_path, document)
+
+    assert list(converted) == [
+        "package",
+        "mainActivity",
+        "codePackage",
+        "codePackageSource",
+        "class_defs_under_key",
+        "distMax",
+        "distancePairs",
+        "distanceTargets",
+        "components",
+        "reachability",
+        "windows",
+        "transitions",
+        "complete",
+    ]
+    assert converted["distMax"] == 15
 
 
 def test_marker_goes_last_when_no_later_member_is_present(tmp_path):

@@ -47,6 +47,7 @@ def mock_config():
     config.analysis_client_jar = "/fake/gator/rvsec-analysis-client.jar"
     config.jvm_memory = "12g"
     config.analysis_timeout = 600
+    config.dist_max = None
     config.get_tool_command.return_value = [
         sys.executable,
         "/fake/gator/gator",
@@ -141,13 +142,28 @@ class TestStaticAnalyzer:
         )
 
     @patch("rv_static_analysis.analysis.static.static_analysis.Command")
-    def test_run_analysis_skip_if_exists(self, mock_command, analyzer):
-        """Test that analysis is skipped if the result file already exists."""
+    def test_run_analysis_skip_if_exists(self, mock_command, analyzer, tmp_path):
+        """Test that analysis is skipped if the result file already exists.
+
+        The stored document is real, because the reuse checks read it: it
+        records no horizon and no scope key, so it answers a run with neither.
+        """
         mock_command_instance = MagicMock()
         mock_command.return_value = mock_command_instance
+        stored = tmp_path / "test_app.json"
+        stored.write_text(
+            json.dumps(
+                {
+                    "package": "com.example.test",
+                    "components": {},
+                    "reachability": [],
+                    "complete": True,
+                }
+            )
+        )
+        analyzer.analysis_file = str(stored)
 
-        with patch("os.path.isfile", return_value=True):
-            analyzer._run_analysis()
+        analyzer._run_analysis()
 
         # Command is still created but invoke() should NOT be called
         mock_command_instance.invoke.assert_not_called()

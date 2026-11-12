@@ -10,17 +10,19 @@ Runs via ADB shell using `app_process` with a JAR pushed to the device:
 
 1. Push `ape.jar` to `/data/local/tmp/ape.jar` on the device
 2. Push `ape.properties` to `/data/local/tmp/ape.properties` (see below)
-3. Execute via: `adb shell CLASSPATH=/data/local/tmp/ape.jar app_process / ape.Main -p <package> --ape <strategy> --running-minutes <minutes>`
+3. Set `dalvik.vm.heapgrowthlimit` to `512m` as root and read it back (see below)
+4. Execute via: `adb shell CLASSPATH=/data/local/tmp/ape.jar app_process / ape.Main -p <package> --ape <strategy> --running-minutes <minutes>`
 
 The JAR is resolved by `JarResolver`, which searches the module directory first, then `TOOLS_DIR` and standard paths.
 
-## Timing, Completion and Capture
+## Timing, Completion, Capture and Heap
 
-The `ape` tool gives APE the same host time and the same completion rule as the `aperv` tool, so the two arms of an APE × APE-RV comparison differ only in the jar.
+The `ape` tool gives APE the same host time, the same completion rule and the same heap as the `aperv` tool, so the two arms of an APE × APE-RV comparison differ only in the jar.
 
 - **Teardown grace.** The `adb shell` command runs under a timeout of the budget plus `TOOL_TEARDOWN_GRACE_S` (45 s, `rv_android_core.constants`, INV-TOOL-27). APE ends on its own `--running-minutes` timer and finishes its teardown inside that window. If the host timeout fires, the resulting `RVToolTimeoutError` is a normal end of the run.
 - **Completion by elapsed time.** The exit code is not consulted: APE exits non-zero when the app under test crashes, which is data the run collects, and a device that went away also exits non-zero. A return earlier than the budget minus `TOOL_TEARDOWN_GRACE_S` (255 s for a 300 s budget) raises `RVToolExecutionError`, naming the elapsed time and the budget, so rv-platform stores the task as `ERROR` and its resume re-executes it (INV-TOOL-28).
 - **`ape.properties`.** Before each run the tool pushes `/data/local/tmp/ape.properties` with exactly `ape.takeScreenshotForEveryStep=false`, `ape.saveGUITreeToXmlEveryStep=false` and `ape.takeScreenshotForNewState=true` (INV-TOOL-29). Upstream APE then writes a screenshot and a GUI-tree XML only when a new abstract state appears, rather than on every step, which is the capture policy of the APE-RV jar. This is the only setting that departs from the author's defaults. A failed push raises `RVToolExecutionError` and APE does not start. The file is not removed: each task boots its own emulator with `-read-only` and `-no-snapshot-save`.
+- **Heap growth limit.** After the pushes and before the `adb shell` command, the tool calls `Android.set_ape_heap_growth_limit` (rv-android-core), which runs `adb -s <serial> shell su 0 setprop dalvik.vm.heapgrowthlimit 512m` and then `getprop` (INV-TOOL-30). The value is `APE_HEAP_GROWTH_LIMIT` in `rv_android_core.constants`, and `aperv` makes the same call in every cell, so `aperv:base` and `ape` run with the same heap. `app_process` reads the property when it starts APE's VM; the app under test forks from the zygote, which read the property at boot, so it is expected to keep the AVD's heap (inferred from the mechanism, not measured). When the setprop fails or the property does not read back as `512m`, `RVToolExecutionError` names the value read back and APE does not start. The property is not persistent and lasts until the emulator stops. The emulator image must be a `userdebug` build with `su`.
 
 ## Variants
 

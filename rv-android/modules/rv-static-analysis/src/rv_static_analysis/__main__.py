@@ -52,6 +52,7 @@ from rv_static_analysis import (
     StaticAnalyzer,
 )
 from rv_static_analysis.compact import CompactRefused, compact_document
+from rv_static_analysis.config import DEFAULT_DIST_MAX
 from rv_static_analysis.path_query import PathQueryRefused, query_paths
 
 
@@ -149,6 +150,25 @@ Examples:
     return parser
 
 
+def _positive_int(text: str) -> int:
+    """Parse the value of `--dist-max`: an integer >= 1.
+
+    Refusing here makes argparse exit with status 2 before a configuration or
+    a GATOR process exists.
+
+    Raises:
+        argparse.ArgumentTypeError: `text` is not an integer, or is below 1.
+    """
+    refusal = f"must be an integer >= 1, got '{text}'"
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(refusal) from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(refusal)
+    return value
+
+
 def add_common_arguments(parser: argparse.ArgumentParser) -> None:
     """Add configuration, tool, and utility arguments shared by all subcommands.
 
@@ -210,9 +230,20 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "--full-output",
         action="store_true",
         help="Write the full document (propagated as -clientParam fullOutput=true): "
-        "indented, every targetDistances pair, no distancePairs member. Default: "
-        "the compact document, without whitespace and with only the pairs the "
-        "MOP-artifact derive reads.",
+        "every targetDistances pair up to the horizon, no distancePairs member. "
+        "Default: the compact document, with only the pairs the MOP-artifact "
+        "derive reads. Both are written without whitespace.",
+    )
+    tools_group.add_argument(
+        "--dist-max",
+        type=_positive_int,
+        metavar="N",
+        default=None,
+        help="Horizon of the distance searches, an integer >= 1 (propagated as "
+        "-clientParam distMax=N): no targetDistances pair farther than N calls, "
+        "and the document records distMax. Default: GATOR's horizon of "
+        f"{DEFAULT_DIST_MAX}, with no distMax member. A stored document computed "
+        "with another horizon is regenerated.",
     )
     tools_group.add_argument(
         "--distance-paths",
@@ -390,6 +421,9 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
 
     if getattr(args, "full_output", False):
         config_kwargs["full_output"] = True
+
+    if getattr(args, "dist_max", None) is not None:
+        config_kwargs["dist_max"] = args.dist_max
 
     if getattr(args, "distance_paths", False):
         config_kwargs["distance_paths"] = True

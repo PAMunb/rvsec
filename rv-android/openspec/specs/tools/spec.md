@@ -158,7 +158,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 - **Device**: UIAutomator2Adapter performs clicks, swipes, text input, button presses, app launches/stops, and screenshot captures on the connected Android device/emulator.
 - **File System**: Screenshot files written to configurable directory (`./screenshots/` default). Tool trace files written to `task.result.trace_file` during execution.
-- **Device**: the `ape` built-in pushes `/data/local/tmp/ape.properties` before each run (INV-TOOL-29); the emulator of each task runs with `-read-only -no-snapshot-save`, so the file does not outlive the task.
+- **Device**: the `ape` built-in pushes `/data/local/tmp/ape.properties` (INV-TOOL-29) and sets `dalvik.vm.heapgrowthlimit` to `512m` as root (INV-TOOL-30) before each run; the emulator of each task runs with `-read-only -no-snapshot-save` and starts without either, so neither outlives the task.
 - **Processes**: `kill_related_processes()` terminates device-side processes matching the tool's `process_pattern` via `adb shell kill`.
 - **Logging**: All operations emit structured log entries via `LoggingManager` with component context.
 
@@ -211,6 +211,8 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 - **INV-TOOL-28**: The `ape` built-in SHALL NOT decide a run's outcome from APE's exit code. A return that arrives earlier than the budget minus `TOOL_TEARDOWN_GRACE_S` SHALL raise `RVToolExecutionError`, naming the elapsed time and the budget. Any other return SHALL complete the task.
 
 - **INV-TOOL-29**: Before starting APE, the `ape` built-in SHALL push `/data/local/tmp/ape.properties` holding exactly `ape.takeScreenshotForEveryStep=false`, `ape.saveGUITreeToXmlEveryStep=false` and `ape.takeScreenshotForNewState=true`, in that order.
+
+- **INV-TOOL-30**: Before starting APE, the `ape` built-in SHALL set `dalvik.vm.heapgrowthlimit` to `APE_HEAP_GROWTH_LIMIT` (`rv_android_core.constants`, `512m`) through `Android.set_ape_heap_growth_limit`, the call `aperv-tool` makes (`aperv` INV-APV-73), and SHALL NOT start APE when the value does not read back. No tool module SHALL define its own copy of the value or of the set.
 
 ## Requirements
 
@@ -604,3 +606,24 @@ The files stay on the emulator's `/sdcard`, and rv-android does not read them.
 - **THEN** an `adb -s emulator-5554 push` to `/data/local/tmp/ape.properties` SHALL run before the APE command
 - **AND** the pushed file SHALL be exactly `ape.takeScreenshotForEveryStep=false\nape.saveGUITreeToXmlEveryStep=false\nape.takeScreenshotForNewState=true\n`
 - **AND** a failed push SHALL raise `RVToolExecutionError`, and APE SHALL NOT start
+
+### Requirement: APE Built-in Starts APE With the APE-RV Heap Growth Limit (FR19, NFR04)
+
+`APETool.execute_tool_specific_logic()` SHALL set `dalvik.vm.heapgrowthlimit` to `APE_HEAP_GROWTH_LIMIT`
+(`rv_android_core.constants`, `512m`) through `Android.set_ape_heap_growth_limit`, after the pushes and before
+the `adb shell` command. When the read-back is not `512m`, APE SHALL NOT start (INV-TOOL-30). `aperv` makes the
+same call in every cell, so `aperv:base` stays the APE in heap as in host time (INV-TOOL-27).
+
+What is measured and what is only inferred about the heap: design D12.
+
+#### Scenario: the limit is set before APE starts
+- **WHEN** `APETool.execute_tool_specific_logic()` runs on `emulator-5554`
+- **THEN** `adb -s emulator-5554 shell su 0 setprop dalvik.vm.heapgrowthlimit 512m` and then
+  `adb -s emulator-5554 shell getprop dalvik.vm.heapgrowthlimit` SHALL run after the pushes of the jar and of
+  `ape.properties`
+- **AND** both SHALL run before the `app_process` command
+
+#### Scenario: a limit that does not hold stops the task
+- **WHEN** `getprop dalvik.vm.heapgrowthlimit` reads `192m` after the setprop
+- **THEN** `RVToolExecutionError` SHALL be raised naming the value read back and the tool `ape`
+- **AND** no `app_process` command SHALL be executed

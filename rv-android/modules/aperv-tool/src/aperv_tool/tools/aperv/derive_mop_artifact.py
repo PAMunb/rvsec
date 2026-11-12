@@ -33,13 +33,22 @@ read, changed and defended one at a time.
   merge — the listeners of one event, colliding widgets, a dialog into its host, an
   activity's widgets and its own methods — takes the minimum per target on the full
   map, and the cut happens only at emission: a widget or handler list keeps every
-  pair at `d <= DIST_WEIGHED_MAX`, an activity list its `DIST_K` nearest pairs.
+  pair at `d <= cut`, an activity list its `DIST_K` nearest pairs.
   Cutting each source first could drop a target that is fourth in one source and
   first after the merge (INV-DRV-10). The same two cuts make the caller's streaming
-  read exact (INV-APV-64): it keeps, per method, the minima at
-  `d <= DIST_WEIGHED_MAX` and the `DIST_K` nearest, and a pair outside both has
-  `DIST_K` targets ahead of it in its own method that stay ahead after any merge.
-  A change to either cut is a change to that reduction.
+  read exact (INV-APV-64): it keeps, per method, the minima at `d <= cut` and the
+  `DIST_K` nearest, and a pair outside both has `DIST_K` targets ahead of it in its
+  own method that stay ahead after any merge. A change to either cut is a change to
+  that reduction, so a caller that streams the document reduces it with the cut it
+  passes to `derive()`.
+- **The weighed cut is a parameter bounded by the document's horizon.** `derive()`
+  takes the cut of the widget and handler lists as `cut`, `DIST_WEIGHED_MAX` (3) by
+  default; `activityDist` keeps its `DIST_K` nearest pairs whatever the cut. The
+  cut is not written into the artifact, so the caller names the cached artifact by
+  it (INV-APV-72). GATOR records no pair beyond the horizon its run searched to,
+  the document's `distMax` or `DEFAULT_DIST_MAX` when it carries none, so a cut
+  above that horizon would derive the shallower one without notice and is refused
+  (INV-APV-71).
 - **The two MOP axes.** `direct` is the producer's 0-hop bit — the handler invokes a
   monitored operation in its own body, which is what `ape.mopWeightDirect` was
   defined to reward. `transitive` is any-depth reach. `direct` implies `transitive`
@@ -187,10 +196,21 @@ EMPTY_EVENT_KEY = ""
 # the census already makes eligible, so the three nearest are enough to rank them.
 DIST_K = 3
 
-# Largest distance kept on a widget or handler list. The jar gives a pair no weight
-# from `d = 4` (`ape` D18), so the list carries every pair it weighs and none other
-# (`ape` D15, amendment of 2026-10-09).
+# Largest distance kept on a widget or handler list by default, the cut `derive()`
+# applies when given none. The jar weighs one level per element of its ladder
+# `ape.mopWeights`, three by default, and gives a pair beyond the ladder no weight,
+# so at the default the list carries every pair it weighs and none other (`ape`
+# D15, amendment of 2026-10-09). A longer ladder deepens the cut (INV-APV-70).
 DIST_WEIGHED_MAX = 3
+
+# The distance horizon of a document that carries no `distMax` member: GATOR's
+# `TargetDistances.DEFAULT_DIST_MAX`, the depth its searches stop at when the run
+# is given no `distMax` parameter (INV-ANA-99). tests/parity/
+# test_distance_pair_constants.py pins the two equal.
+DEFAULT_DIST_MAX = 10
+
+# The top-level member in which GATOR records the horizon a run was given.
+DIST_MAX_KEY = "distMax"
 
 # === DERIVATION COUNTERS ===
 
@@ -248,7 +268,12 @@ def serialize_canonical(artifact: dict) -> bytes:
     ).encode("utf-8")
 
 
-def derive(document: dict, source_file: str = "", source_digest: str = "") -> dict:
+def derive(
+    document: dict,
+    source_file: str = "",
+    source_digest: str = "",
+    cut: int = DIST_WEIGHED_MAX,
+) -> dict:
     """
     Project the full static-analysis JSON into the compact MOP artifact.
 
@@ -259,6 +284,10 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
             I/O.
         source_digest: `rv_android_core.util.analysis_document.digest_of_file()`
             of that file, same reason.
+        cut: Largest distance kept on a widget or handler pair list, an integer
+            from 1 to the document's horizon (`distMax`, `DEFAULT_DIST_MAX` when
+            absent). `activityDist` does not depend on it, and it is not written
+            into the artifact.
 
     Returns:
         The artifact dict per the `formatVersion: 2` wire schema, with keys:
@@ -269,9 +298,8 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
         - "source" (dict): Provenance — `digest`, `file`, `generator`.
         - "widgets" (dict): `baseActivity -> shortId -> {mop, dist?, …metadata}`,
           holding only widgets the explorer can act on. `dist` maps an event to its
-          `[targetIndex, distance]` pairs at `d <= DIST_WEIGHED_MAX`, nearest
-          first; an event with no such pair has no key, and an empty `dist` is
-          omitted.
+          `[targetIndex, distance]` pairs at `d <= cut`, nearest first; an event
+          with no such pair has no key, and an empty `dist` is omitted.
         - "mopActivities" (list[str]): Widget-derived MOP-activity set, sorted.
         - "mopActivitiesAugmented" (list[str]): The A′ superset of that set, sorted;
           the on-device flag picks which of the two a run uses.
@@ -292,17 +320,21 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
           stamp through.
 
     Raises:
-        DerivationError: The document is not an object, carries no package, or
-            holds a section of the wrong type. Nothing partial is returned. What
-            fails is a document the schema contradicts; a document the producer
-            merely did not finish derives, carrying its unfinished state as an
-            empty `wtg` (INV-DRV-08).
+        DerivationError: The document is not an object, carries a `distMax` that
+            is not an integer >= 1, carries no package, or holds a section of the
+            wrong type, or the cut is not an integer from 1 to the document's
+            horizon (INV-APV-71). Nothing partial is returned. What fails is a
+            document the schema contradicts, or a cut it cannot carry; a document
+            the producer merely did not finish derives, carrying its unfinished
+            state as an empty `wtg` (INV-DRV-08).
     """
-    # Step 1: Refuse a document that cannot be trusted as a whole
+    # Step 1: Refuse a document that cannot be trusted as a whole, and a cut deeper
+    # than the horizon its distances were searched to
     if not isinstance(document, dict):
         raise DerivationError(
             f"static-analysis document must be an object, got {type(document).__name__}"
         )
+    _require_cut(cut, _read_horizon(document))
 
     package = document.get("package")
     if not isinstance(package, str) or not package:
@@ -368,7 +400,7 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
             "file": source_file,
             "generator": GENERATOR_ID,
         },
-        "widgets": _emit_widgets(widget_map),
+        "widgets": _emit_widgets(widget_map, cut),
         "mopActivities": sorted(flagged_activities),
         "mopActivitiesAugmented": _augment_activities(
             flagged_activities, components.get("activities"), index.activity_classes
@@ -379,8 +411,44 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
         "stats": stats,
         "targets": targets,
         "activityDist": _emit_activity_dist(activity_minima, index.activity_class_dist),
-        "handlers": _emit_handlers(index.handler_records),
+        "handlers": _emit_handlers(index.handler_records, cut),
     }
+
+
+def _read_horizon(document: dict) -> int:
+    """The depth the document's distances were searched to.
+
+    GATOR writes `distMax` only when its run was given the parameter, so a
+    document without the member was searched to `DEFAULT_DIST_MAX` (INV-ANA-99).
+    A member that is not an integer >= 1 is refused like any section of the wrong
+    type: compared with the cut, a string would raise `TypeError`, and a bool
+    would pass as 0 or 1.
+
+    Raises:
+        DerivationError: `distMax` is present and is not an integer >= 1.
+    """
+    if DIST_MAX_KEY not in document:
+        return DEFAULT_DIST_MAX
+    horizon = document[DIST_MAX_KEY]
+    if isinstance(horizon, bool) or not isinstance(horizon, int) or horizon < 1:
+        raise DerivationError(
+            f"'{DIST_MAX_KEY}' must be an integer >= 1, got {horizon!r}"
+        )
+    return horizon
+
+
+def _require_cut(cut: Any, horizon: int) -> None:
+    """Refuse a weighed cut that is not an integer from 1 to the document's horizon.
+
+    The document holds no pair beyond its horizon, so an artifact derived deeper
+    would carry the horizon's lists under a deeper cut's name (INV-APV-71).
+    """
+    if isinstance(cut, bool) or not isinstance(cut, int) or not 1 <= cut <= horizon:
+        raise DerivationError(
+            f"derive cut must be an integer from 1 to the document's horizon "
+            f"{horizon} ('{DIST_MAX_KEY}', {DEFAULT_DIST_MAX} when absent), "
+            f"got {cut!r}"
+        )
 
 
 def _require_section(document: dict, key: str, expected: type, default: Any) -> Any:
@@ -677,18 +745,20 @@ def _sorted_pairs(minima: dict[int, int]) -> list[tuple[int, int]]:
     return sorted((distance, index) for index, distance in minima.items())
 
 
-def _cut_weighed(minima: dict[int, int]) -> list[list[int]]:
+def _cut_weighed(
+    minima: dict[int, int], cut: int = DIST_WEIGHED_MAX
+) -> list[list[int]]:
     """Cut per-target minima to a widget or handler pair list.
 
-    The cut of the lists the jar weighs (INV-DRV-10): every pair at
-    `d <= DIST_WEIGHED_MAX`, sorted by distance and then by index, which is what
-    makes the list byte-stable. Applied only at emission, after every merge.
-    Empty when no target lies within `DIST_WEIGHED_MAX` calls.
+    The cut of the lists the jar weighs (INV-DRV-10): every pair at `d <= cut`
+    (`DIST_WEIGHED_MAX` by default), sorted by distance and then by index, which is
+    what makes the list byte-stable. Applied only at emission, after every merge.
+    Empty when no target lies within `cut` calls.
     """
     return [
         [index, distance]
         for distance, index in _sorted_pairs(minima)
-        if distance <= DIST_WEIGHED_MAX
+        if distance <= cut
     ]
 
 
@@ -1116,13 +1186,17 @@ def _collide(resident: dict | None, incoming: dict) -> dict:
     return survivor
 
 
-def _cut_events(minima_by_event: dict[str, dict[int, int]]) -> dict[str, list]:
+def _cut_events(
+    minima_by_event: dict[str, dict[int, int]], cut: int
+) -> dict[str, list]:
     """Cut each event's minima with `_cut_weighed`, dropping the events left empty."""
-    cut = {event: _cut_weighed(minima) for event, minima in minima_by_event.items()}
-    return {event: pairs for event, pairs in cut.items() if pairs}
+    kept = {
+        event: _cut_weighed(minima, cut) for event, minima in minima_by_event.items()
+    }
+    return {event: pairs for event, pairs in kept.items() if pairs}
 
 
-def _emit_widgets(widget_map: dict[str, dict[str, dict]]) -> dict:
+def _emit_widgets(widget_map: dict[str, dict[str, dict]], cut: int) -> dict:
     """Project the widget map onto the wire, keeping only actionable widgets.
 
     A widget that is neither MOP-flagged nor carrying metadata has nothing to
@@ -1133,11 +1207,12 @@ def _emit_widgets(widget_map: dict[str, dict[str, dict]]) -> dict:
     exist on a conforming document, and the pairs of an emitted widget are cut to
     the wire here and nowhere earlier, by `_cut_weighed`. An event left with no
     pair after the cut has no key, and a `dist` left empty is omitted: a widget
-    whose targets all lie four calls or more away carries no `dist`.
+    whose targets all lie beyond the cut carries no `dist`.
 
     Args:
         widget_map: The final map from `_build_widget_map()` after the dialog
             re-keying, with uncut minima.
+        cut: The weighed cut handed to `derive()`.
 
     Returns:
         `baseActivity -> shortId -> {mop, dist?, …metadata}`. An activity whose
@@ -1151,7 +1226,7 @@ def _emit_widgets(widget_map: dict[str, dict[str, dict]]) -> dict:
             if not (widget["direct"] or widget["transitive"] or widget["metadata"]):
                 continue
             entry = {"mop": widget["mop"], **widget["metadata"]}
-            dist = _cut_events(widget["dist"])
+            dist = _cut_events(widget["dist"], cut)
             if dist:
                 entry["dist"] = dist
             entries[short_id] = entry
@@ -1568,7 +1643,7 @@ def _emit_activity_dist(
     with those of its own class's methods bar the constructors, and only then cut
     to the `DIST_K` nearest pairs by `_cut_nearest`, whatever their distance
     (INV-DRV-10). The widget minima come in uncut, so a widget whose targets all
-    lie four calls or more away still ranks its activity. An orphan dialog keeps
+    lie beyond the weighed cut still ranks its activity. An orphan dialog keeps
     its own key, which names no manifest activity: its entry is emitted and the
     launcher never reads it.
 
@@ -1593,14 +1668,15 @@ def _emit_activity_dist(
 
 def _emit_handlers(
     handler_records: dict[str, dict[str, tuple[tuple[bool, bool], dict[int, int]]]],
+    cut: int,
 ) -> dict[str, dict]:
     """Project the handler-class table onto the wire.
 
     Every class declaring a handler method is listed, a class reaching nothing
     included: the jar reads "listed with `none`" as "the stamped handler reaches no
     target", which is a different statement from "not listed". The pairs are cut
-    by `_cut_weighed` as a widget's are; a record left with no pair keeps its
-    `mop` and has no `dist`.
+    by `_cut_weighed` at the weighed cut handed to `derive()`, as a widget's are; a
+    record left with no pair keeps its `mop` and has no `dist`.
 
     Returns:
         `binaryClassName -> {mop: {event: flag}, dist?: {event: [[i, d], …]}}`,
@@ -1611,7 +1687,9 @@ def _emit_handlers(
         record: dict[str, dict] = {
             "mop": {event: _encode_mop(*flags) for event, (flags, _) in events.items()}
         }
-        dist = _cut_events({event: minima for event, (_, minima) in events.items()})
+        dist = _cut_events(
+            {event: minima for event, (_, minima) in events.items()}, cut
+        )
         if dist:
             record["dist"] = dist
         emitted[class_name] = record

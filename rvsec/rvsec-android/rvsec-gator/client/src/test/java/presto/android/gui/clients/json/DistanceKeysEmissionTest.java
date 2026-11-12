@@ -91,7 +91,8 @@ public class DistanceKeysEmissionTest {
 		Map<SootMethod, Set<SootMethod>> callers = new HashMap<>();
 		callers.put(t, new HashSet<>(Collections.singleton(u)));
 		return TargetDistances.compute(callers, new HashSet<>(Arrays.asList(t, u, v)), direct,
-				Collections.<SootMethod>emptySet(), SootMethod::getSignature);
+				Collections.<SootMethod>emptySet(), SootMethod::getSignature,
+				TargetDistances.DEFAULT_DIST_MAX);
 	}
 
 	private static ReachabilityEnricher enricher(TargetDistances<SootMethod> d) {

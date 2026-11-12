@@ -64,10 +64,19 @@ public class TargetDistancesCompactTest {
 	}
 
 	@Test
-	public void aSinglePairAtTheCapIsKept() {
-		int[][] in = pairs(2, TargetDistances.DIST_MAX);
+	public void aSinglePairAtTheDefaultHorizonIsKept() {
+		int[][] in = pairs(2, TargetDistances.DEFAULT_DIST_MAX);
 
-		assertArrayEquals(pairs(2, TargetDistances.DIST_MAX), TargetDistances.compact(in));
+		assertArrayEquals(pairs(2, TargetDistances.DEFAULT_DIST_MAX),
+				TargetDistances.compact(in));
+	}
+
+	@Test
+	public void pairsBeyondTheDefaultHorizonAreRankedLikeAnyOther() {
+		// A method 11 to 14 calls from four targets, found under a horizon of 15.
+		int[][] in = pairs(0, 11, 1, 12, 2, 13, 3, 14);
+
+		assertArrayEquals(pairs(0, 11, 1, 12, 2, 13), TargetDistances.compact(in));
 	}
 
 	@Test

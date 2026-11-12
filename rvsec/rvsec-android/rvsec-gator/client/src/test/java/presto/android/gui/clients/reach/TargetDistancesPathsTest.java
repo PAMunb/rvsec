@@ -49,7 +49,13 @@ public class TargetDistancesPathsTest {
 	}
 
 	private TargetDistances<String> compute(Set<String> direct, Set<String> targets) {
-		return TargetDistances.compute(callers, app, direct, targets, Function.identity());
+		return compute(direct, targets, TargetDistances.DEFAULT_DIST_MAX);
+	}
+
+	private TargetDistances<String> compute(Set<String> direct, Set<String> targets,
+			int horizon) {
+		return TargetDistances.compute(callers, app, direct, targets, Function.identity(),
+				horizon);
 	}
 
 	/** Step {@code [i, v, n]} with the method indices resolved to signatures. */
@@ -263,6 +269,30 @@ public class TargetDistancesPathsTest {
 						kept.test(m, pair));
 			}
 		}
+	}
+
+	@Test
+	public void aHorizonOfTwelveWritesTheElevenStepChain() {
+		// m11 -> m10 -> ... -> m0 -> Cipher.init, m0 the direct caller: m11 is 11 calls away,
+		// beyond the default horizon. The path pass repeats the searches with the distance
+		// pass's horizon; at the default one it would not find m11 and would throw.
+		List<String> expected = new ArrayList<>();
+		for (int i = 11; i >= 0; i--) {
+			app("m" + i);
+			expected.add("m" + i);
+		}
+		for (int i = 11; i > 0; i--) {
+			call("m" + i, "m" + (i - 1));
+		}
+		call("m0", "Cipher.init");
+		TargetDistances<String> d = compute(set("m0"), set("Cipher.init"), 12);
+
+		DistancePaths p = d.paths(EVERY_PAIR);
+
+		assertArrayEquals(new int[][] { { 0, 11 } }, d.pairs("m11"));
+		assertEquals(expected, chain(p, 0, "m11", 11));
+		assertEquals("one step per method on the chain but the target", 11, p.steps().length);
+		assertChainsOfWrittenPairs(d, p, EVERY_PAIR);
 	}
 
 	@Test

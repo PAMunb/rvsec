@@ -1,0 +1,39 @@
+### 5.4 distMax=15 on org.musicbrainz.picard.barcodescanner_38.apk
+## histogram full
+bytes 279021 newlines 0 members ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+distMax=None distancePairs=None targets=5 methods_with_pairs=53 pairs_per_d=[(0, 5), (1, 14), (2, 10), (3, 20), (4, 16), (5, 22), (6, 28), (7, 31), (8, 34), (9, 29), (10, 32)] max_d=10
+RESULT PASS
+## histogram compact
+bytes 278526 newlines 0 members ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distancePairs', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+distMax=None distancePairs={'weighedMax': 3, 'k': 3} targets=5 methods_with_pairs=53 pairs_per_d=[(0, 5), (1, 14), (2, 10), (3, 20), (4, 15), (5, 18), (6, 18), (7, 19), (8, 16), (9, 13), (10, 8)] max_d=10
+RESULT PASS
+## histogram d15-full
+bytes 280019 newlines 0 members ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distMax', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+distMax=15 distancePairs=None targets=5 methods_with_pairs=69 pairs_per_d=[(0, 5), (1, 14), (2, 10), (3, 20), (4, 16), (5, 22), (6, 28), (7, 31), (8, 34), (9, 29), (10, 32), (11, 22), (12, 13), (13, 21), (14, 25), (15, 14)] max_d=15
+RESULT PASS
+## histogram d15-compact
+bytes 279195 newlines 0 members ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distMax', 'distancePairs', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+distMax=15 distancePairs={'weighedMax': 3, 'k': 3} targets=5 methods_with_pairs=69 pairs_per_d=[(0, 5), (1, 14), (2, 10), (3, 20), (4, 15), (5, 18), (6, 18), (7, 19), (8, 16), (9, 13), (10, 8), (11, 6), (12, 8), (13, 16), (14, 13), (15, 5)] max_d=15
+RESULT PASS
+## converter: rv-static-analysis compact new/d15-full -> d15-converted.json
+Compact document written: experimento-gtdistmax/new/checks/d15-converted.json
+exit=0
+experimento-gtdistmax/new/checks/d15-converted.json e experimento-gtdistmax/new/d15-compact/org.musicbrainz.picard.barcodescanner_38.apk.d/org.musicbrainz.picard.barcodescanner_38.apk.json são diferentes: byte 149041, linha 1
+bytes 279195 vs 279195; newlines 0 vs 0; bytes-identical False
+ members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distMax', 'distancePairs', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+ package equal
+ mainActivity equal
+ codePackage equal
+ codePackageSource equal
+ class_defs_under_key equal
+ distMax equal
+ distancePairs equal
+ distanceTargets equal
+ components equal
+ reachability equal
+ windows equal
+ transitions multiset-equal (175 edges)
+ complete equal
+RESULT PASS
+converter exit=0
+converter deterministic: identical

@@ -61,7 +61,7 @@ public final class JsonSchema {
 		// of {SIGNATURE, KIND} objects, KIND "direct" (app direct callers, C) or "boundary"
 		// (app methods handing control to library code that reaches a target, B \ C).
 		// TARGET_DISTANCES is per method: a list of [index into DISTANCE_TARGETS, distance],
-		// omitted when the method is within DIST_MAX calls of no target.
+		// omitted when the method is within the run's horizon of no target.
 		public static final String DISTANCE_TARGETS = "distanceTargets";
 		public static final String KIND = "kind";
 		public static final String TARGET_DISTANCES = "targetDistances";
@@ -73,6 +73,12 @@ public final class JsonSchema {
 		public static final String DISTANCE_PAIRS = "distancePairs";
 		public static final String WEIGHED_MAX = "weighedMax";
 		public static final String K = "k";
+
+		// Distance horizon (INV-ANA-99): top-level DIST_MAX, the integer the run was given as
+		// -clientParam distMax, written right after CLASS_DEFS_UNDER_KEY and so before
+		// DISTANCE_PAIRS in compact output. Written only when the run was given the parameter;
+		// a document without it was computed with TargetDistances.DEFAULT_DIST_MAX.
+		public static final String DIST_MAX = "distMax";
 
 		// Distance paths (INV-ANA-90, -91), written only with -clientParam distancePaths=true,
 		// right after REACHABILITY. PATH_METHODS is the sorted list of the signatures that occur

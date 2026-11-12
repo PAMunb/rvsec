@@ -29,14 +29,15 @@ All three FRs are satisfied by a single GATOR client invocation (`RvsecAnalysisC
 | INV-ANA-82 | The parsed copy `<apk>.static.json` answers only while it records the source's current digest | `read_static_analysis_files()` compares the copy's `source.digest` with `digest_of_file()` of `<apk>.json`; absent, unreadable, unparseable or another digest is a miss that streams the source |
 | INV-ANA-83 | The parsed copy parses to the same model as its source, and a truncated source is never cached | The copy is the streamed dict plus a top-level `source` record no section parser reads; `_write_parsed_copy()` is called only when the read was not truncated |
 | INV-ANA-84 | No module outside rv-static-analysis reads or names the parsed copy, and it never reaches a device | `tests/test_static_copy_audit.py` scans every `.py` under `modules/` for the suffix and every `src/` for `EXTENSION_PARSED_COPY`; the definition in `rv_android_core/constants.py` is the permitted match |
-| INV-ANA-85 / INV-ANA-86 | Compact output (the default) keeps per method the pairs at `d <= 3` plus the 3 nearest by `(d, i)`, sorted by `i`, and carries `distancePairs`; full output is the indented document with every pair and no marker | Written by the GATOR client; this module only selects the mode: `get_tool_command()` appends `-clientParam fullOutput=true` when `full_output` is `True` and nothing otherwise |
+| INV-ANA-85 / INV-ANA-86 | Compact output (the default) keeps per method the pairs at `d <= 3` plus the 3 nearest by `(d, i)`, sorted by `i`, and carries `distancePairs`; full output carries every pair up to the run's horizon and no marker; both are written without whitespace | Written by the GATOR client; this module only selects the mode: `get_tool_command()` appends `-clientParam fullOutput=true` when `full_output` is `True` and nothing otherwise |
 | INV-ANA-87 | The converter writes, byte for byte, the compact document GATOR writes for the same analysis | `compact_document()` reads with `PairPolicy.reduce(COMPACT_WEIGHED_MAX, COMPACT_K)`, re-sorts by `i`, inserts the marker where `JsonReportWriter` writes it and serialises with `dumps_gson_compact()`; refusals raise `CompactRefused` before any output exists |
 | INV-ANA-88 | The reduction constants agree in Java, in the converter and in `aperv-tool` | `rv-android/tests/parity/test_distance_pair_constants.py` compares `TargetDistances.COMPACT_WEIGHED_MAX`/`COMPACT_K` (read from the Java source), `compact.COMPACT_WEIGHED_MAX`/`COMPACT_K` and `DIST_WEIGHED_MAX`/`DIST_K` |
 | INV-ANA-89 | Either output mode parses to the same `StaticAnalysisData` | The streaming read drops every pair (INV-ANA-80) and no section parser reads `distancePairs`; `tests/test_compact_equivalence.py` compares the models of the fixture and of its compact form |
 | INV-ANA-90 | A document written with distance paths equals the one written without them apart from `pathMethods` and `distancePaths` | Written by the GATOR client; this module only asks for them: `get_tool_command()` appends `-clientParam distancePaths=true` when `distance_paths` is `True` and nothing otherwise |
 | INV-ANA-97 | The campaign reader drops the path members under every `PairPolicy` | `read_analysis_document` skips `pathMethods` and `distancePaths` without building them, so the model, the parsed copy and the converter's input never hold a step; `compact_document()` learns their presence from the `dropped_paths` out-parameter and refuses the input |
 | INV-ANA-98 | `path` prints exactly the `d + 1` methods of each written pair's chain | `path_query.query_paths()` follows the steps `d` times per pair and refuses a chain that breaks or does not end on the target (INV-ANA-91) |
-| INV-ANA-11 / INV-ANA-70 | An existing output JSON is reused, but only under its own scope key | `StaticAnalyzer._execute_command()` checks file existence and then `_disagreeing_recorded_key()`; a recorded key that is not this run's makes the run regenerate rather than reuse (an artefact recording no key is reused, which is the state of all 162 stored ones) |
+| INV-ANA-99 / INV-ANA-102 | The run's distance horizon reaches GATOR only when set, and a stored output JSON is reused only under the horizon it records | `get_tool_command()` appends `-clientParam distMax=<N>` when `dist_max` is set and nothing otherwise; `StaticAnalyzer._recorded_dist_max()` reads the stored document's top in streaming (`distMax`, `DEFAULT_DIST_MAX` = 10 when the first post-scope member comes first) and `_execute_command()` regenerates a document of another horizon or with an unreadable top before any other check |
+| INV-ANA-11 / INV-ANA-70 | An existing output JSON is reused, but only under its own scope key | `StaticAnalyzer._execute_command()` checks file existence, then the horizon (INV-ANA-102), and then `_disagreeing_recorded_key()`; a recorded key that is not this run's makes the run regenerate rather than reuse (an artefact recording no key is reused, which is the state of all 162 stored ones) |
 | INV-ANA-14 | PackageDetector applies heuristics in priority order, and only when the run enabled it | `PackageDetector` (in rv-android-core) resolves `code_package` via its 7-strategy priority chain under `--package-detector` / `RV_PACKAGE_DETECTOR`; by default `App` reports the declared applicationId and no strategy runs |
 | INV-ANA-58 | A run that *performs* an analysis records the key it used; no key is inferred from an artefact | `StaticAnalysisResult.code_package` / `.code_package_source` are set in `analyze()`; nothing reads the JSON's `package` member as a key (it holds the manifest package whatever key filtered the file) |
 | INV-ANA-59 | `reachability` is loaded whole; the parsed method universe equals it exactly | `_parse_classes()` has no package parameter and no filter — every entry becomes a `Clazz`. The universe is the coverage denominator |
@@ -51,7 +52,7 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 
 - **Successful static analysis with valid APK**: Traces through `StaticAnalyzer._run_analysis()` -> GATOR subprocess -> JSON file -> `StaticAnalysisParser.parse_file()` -> `StaticAnalysisData` with non-empty Classes, Windows, WTG, and Components
 - **Timeout with partial JSON output**: Traces through `Command` timeout -> `kill_process_tree()` -> partial JSON preserved -> the streaming read keeps every top-level member read in full (INV-ANA-81) -> those sections parsed; the member cut mid-write and every later one return empty domain objects
-- **Analysis result is cached**: Traces through `StaticAnalyzer._execute_command()` -> file existence check -> `_disagreeing_recorded_key()` -> execution skipped -> `CommandResult(0, b"", b"")` returned with `execution_status='cached'` log. A recorded key that is not this run's removes the file and falls through to execution instead (INV-ANA-70)
+- **Analysis result is cached**: Traces through `StaticAnalyzer._execute_command()` -> file existence check -> `_recorded_dist_max()` -> `_disagreeing_recorded_key()` -> execution skipped -> `CommandResult(0, b"", b"")` returned with `execution_status='cached'` log. A recorded horizon that is not this run's, an unreadable top (INV-ANA-102) or a recorded key that is not this run's (INV-ANA-70) removes the file and falls through to execution instead
 - **A degenerate denominator is refused**: Traces through `analyze()` -> `_check_denominator()` -> `parse_file()` -> `check_denominator(classes, class_defs_under_key, key)` -> `DenominatorImplausibleError` -> `StaticAnalysisResult(success=False)` carrying the parsed count, the compiled count and the key
 - **Parsed copy reuse**: `read_static_analysis_files()` -> `digest_of_file()` of `<apk>.json` -> `<apk>.static.json` records that digest -> `json.load` of the copy -> `StaticAnalysisData` equal to the source's (INV-ANA-82/83). On a miss the source is streamed and the copy rewritten unless the read was truncated
 - **Converting a full document**: `rv-static-analysis compact IN OUT` -> `handle_compact_command()` -> `compact_document()` -> `read_analysis_document(PairPolicy.reduce(3, 3))` -> refusal checks -> pairs sorted by `i` -> `distancePairs` inserted before `distanceTargets` -> `dumps_gson_compact()` -> temporary file renamed onto `OUT` (INV-ANA-87). A truncated, already compact, path-carrying or non-integer input, or `OUT` equal to `IN`, exits 1 with one stderr line and no output file
@@ -68,15 +69,17 @@ The original pipeline ran three separate Java tools in sequence -- GESDA (GUI el
 
 **Spec reference**: This decision directly enables FR04, FR05, and FR06 from a single process. The priority-ordered output satisfies INV-ANA-06 (parser does not propagate exceptions; returns empty domain objects per-section).
 
-### ADR-2: File-Level Caching, Keyed by the Artefact's Own Scope
+### ADR-2: File-Level Caching, Keyed by the Artefact's Own Horizon and Scope
 
-`StaticAnalyzer._execute_command()` checks whether the output JSON exists before invoking GATOR, and then asks `_disagreeing_recorded_key()` which scope key that file records. An artefact recording this run's key, or no key at all, is reused; one recording a different key is removed and regenerated, with a warning naming both keys. Nothing else about the content is validated -- no checksum, no schema check.
+`StaticAnalyzer._execute_command()` checks whether the output JSON exists before invoking GATOR, then asks `_recorded_dist_max()` which distance horizon that file was computed with, and then asks `_disagreeing_recorded_key()` which scope key it records. An artefact of this run's horizon recording this run's key, or no key at all, is reused; one of another horizon, one whose top cannot be read, and one recording a different key are removed and regenerated, with a warning naming what disagreed. Nothing else about the content is validated -- no checksum, no schema check, and no comparison of output modes.
 
 **Why**: GATOR analysis takes 2-10 minutes per APK. In experiments with 100+ APKs, re-running the pre-processing phase after a crash would waste hours, so the reuse itself is what makes resume cheap. Existence alone was a sufficient signal only while every run scoped by the same rule: (a) a complete run produces valid JSON, and (b) a timed-out run produces truncated JSON whose members written in full the parser keeps (INV-ANA-81). Once a run's key policy can change -- the build-type suffix rule, the package detector -- existence silently reuses an artefact filtered by the *previous* key, and the denominator gate would then judge an old artefact against a new key. The key check is the minimum that makes that mismatch detectable; it costs one parse of a file the run was about to skip. This satisfies INV-ANA-11 as amended by INV-ANA-70.
 
-**Two deliberate reuses.** An artefact recording *no* key is reused rather than regenerated: all 162 artefacts of the article corpus predate INV-ANA-66, and the `package` member holds the manifest package whatever key filtered the file, so resolving a key from it would be the invented measurement INV-ANA-58 forbids. An *unreadable* artefact is reused too -- the parser recovers truncated JSON on purpose (INV-ANA-06), so a parse failure inside the check says something about the check, not about the file.
+**Why the horizon is checked first, and from the top only** (INV-ANA-102): a document computed with another `distMax` carries other pairs, so it cannot answer the run. GATOR writes `distMax` right after the scope members and only when the run was given it, so the answer is in the first few hundred bytes: `_recorded_dist_max()` walks `ijson` events and stops at `distMax`, or at the first member GATOR writes after it, which means 10. The check costs nothing that grows with the document, and when the horizons differ the full parse of the key check is skipped. A document cut by a timeout still answers, because its top was written first.
 
-**Deliberate invalidation** is `--force`, which removes the artefact before `analyze()` runs (`_discard_cached_artifact()`). It is the path for a fresh artefact under the *same* key; the automatic regeneration above fires only when the key changed.
+**Two deliberate reuses.** An artefact recording *no* key is reused rather than regenerated: all 162 artefacts of the article corpus predate INV-ANA-66, and the `package` member holds the manifest package whatever key filtered the file, so resolving a key from it would be the invented measurement INV-ANA-58 forbids. An artefact the key check's full parse cannot read is reused too -- the parser recovers truncated JSON on purpose (INV-ANA-06), so a parse failure inside the check says something about the check, not about the file. One whose top cannot be read never reaches the key check: the horizon check regenerates it, since its horizon is unknown.
+
+**Deliberate invalidation** is `--force`, which removes the artefact before `analyze()` runs (`_discard_cached_artifact()`). It is the path for a fresh artefact under the *same* key and horizon; the automatic regeneration above fires only when the key or the horizon changed.
 
 ### ADR-3: Two-Layer Architecture (Analysis + Parser)
 
@@ -157,15 +160,15 @@ Choosing which classes count as the application's own is a decision made **once*
 
 ### ADR-11: Compact Output by Default, With an Offline Converter
 
-GATOR writes the analysis document in one of two modes (INV-ANA-85, INV-ANA-86). **Compact**, the default, has no whitespace, keeps per method only the `targetDistances` pairs at `d <= 3` and the 3 nearest by `(d, i)`, and records that reduction in a top-level `distancePairs: {weighedMax: 3, k: 3}`. **Full**, selected by `RVStaticAnalysisConfig.full_output` / `--full-output` (`-clientParam fullOutput=true`), is the indented document with every pair up to `d = 10` and no marker. `compact.py` converts a full document into the compact one offline (INV-ANA-87).
+GATOR writes the analysis document in one of two modes (INV-ANA-85, INV-ANA-86), both without whitespace. **Compact**, the default, keeps per method only the `targetDistances` pairs at `d <= 3` and the 3 nearest by `(d, i)`, and records that reduction in a top-level `distancePairs: {weighedMax: 3, k: 3}`. **Full**, selected by `RVStaticAnalysisConfig.full_output` / `--full-output` (`-clientParam fullOutput=true`), carries every pair up to the run's horizon (`distMax`, 10 by default) and no marker. `compact.py` converts a full document into the compact one offline (INV-ANA-87).
 
-**Why compact by default**: the E6 corpus documents took 24.62 GB for 163 APKs in full form and take 1.02 GB compact. Dropping the indentation alone brings them to 4.13 GB; the rest is pairs the derive discards. The size is paid at the write, at every per-task copy, at every SHA-256 of the source, and in the replication package, even though the readers stream. The only pair consumer, the `aperv-tool` MOP derive, keeps exactly these pairs, and the reduction is exact for it: a dropped pair has 3 targets ahead of it in its own method, and they stay ahead after any merge by the minimum. This module's parser drops the pairs anyway, so both modes give the same `StaticAnalysisData` (INV-ANA-89) and no reader is told which mode it reads.
+**Why compact by default**: the E6 corpus documents took 24.62 GB for 163 APKs in indented full form and take 1.02 GB compact. Dropping the indentation alone brings them to 4.13 GB; the rest is pairs the derive discards. The size is paid at the write, at every per-task copy, at every SHA-256 of the source, and in the replication package, even though the readers stream. The only pair consumer, the `aperv-tool` MOP derive, keeps exactly these pairs at its default cut (3), and the reduction is exact for it there: a dropped pair has 3 targets ahead of it in its own method, and they stay ahead after any merge by the minimum. This module's parser drops the pairs anyway, so both modes give the same `StaticAnalysisData` (INV-ANA-89) and no reader is told which mode it reads.
 
-**Why keep full output**: the documents already published are in full form and must stay reproducible, and offline analyses that rank or count pairs beyond the reduction need every pair. The marker tells such a script which kind of document it holds.
+**Why keep full output**: the documents already published are in full form and their content must stay reproducible (compared after parsing, not byte for byte, since the full form carries no indentation), offline analyses that rank or count pairs beyond the reduction need every pair, and an `aperv` cell whose weight ladder deepens the cut past 3 refuses a compact document. The marker tells such a script which kind of document it holds.
 
 **Why a converter rather than re-analysis**: GATOR took 57.5 h of wall clock on the E6 corpus; the conversion is one streaming pass per document. It reuses `read_analysis_document` with `PairPolicy.reduce` -- the reader the parser and the derive already share (ADR-9) -- and adds only a serialiser: `json.dumps(ensure_ascii=False)` with compact separators matches Gson's `JsonWriter` escapes except for U+2028/U+2029, which are escaped after encoding. Only integers are accepted as numbers, because GATOR writes no other kind and Gson's formatting of a double is not reproduced. Every refusal is decided before the output exists, and the output is written to a temporary file in its own directory and renamed onto the destination, so a refused or interrupted conversion leaves no file or the previous one; the input is never opened for writing.
 
-**Why the constants are pinned by a test**: the same two numbers live in Java (`TargetDistances`), in the converter and in `aperv-tool`, and neither Java nor `aperv-tool` can be imported here. If the derive's numbers grew while the producer's stayed, compact documents would silently lose pairs the derive weighs, so `rv-android/tests/parity/test_distance_pair_constants.py` fails on any disagreement (INV-ANA-88).
+**Why the constants are pinned by a test**: the same two numbers live in Java (`TargetDistances`), in the converter and in `aperv-tool`, and neither Java nor `aperv-tool` can be imported here. If the derive's numbers grew while the producer's stayed, compact documents would silently lose pairs the derive weighs, so `rv-android/tests/parity/test_distance_pair_constants.py` fails on any disagreement (INV-ANA-88). The same test pins the default horizon 10 in `TargetDistances.DEFAULT_DIST_MAX`, `config.DEFAULT_DIST_MAX` (the reuse check's value for a document without `distMax`) and the derive.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
@@ -174,10 +177,10 @@ GATOR writes the analysis document in one of two modes (INV-ANA-85, INV-ANA-86).
 | Primary Pattern | ETL Pipeline (Extract-Transform-Load) | APK -> GATOR subprocess (extract) -> JSON parsing (transform) -> domain objects (load) |
 | Control Strategy | Call-based, synchronous | Single subprocess execution with timeout; no concurrency within the module |
 | Distribution | Single machine, subprocess | GATOR runs as a Java subprocess on the same host; no network communication |
-| Caching Strategy | File-level existence check, gated by the recorded scope key | An existing output JSON is reused when it records this run's key or no key; a disagreeing key regenerates it (INV-ANA-70). Nothing else about the content is validated |
+| Caching Strategy | File-level existence check, gated by the recorded horizon and scope key | An existing output JSON is reused when it records this run's horizon (10 when absent) and this run's key or no key; another horizon, an unreadable top or a disagreeing key regenerates it (INV-ANA-102, INV-ANA-70). Nothing else about the content is validated |
 | Read Strategy | One streaming pass, distance members never built | Memory bounded by the document without its distance pairs; truncation recovered in the same pass (ADR-9) |
 | Parse Cache | `<apk>.static.json` keyed by the source's SHA-256 | Repeated run-time reads of one document cost a small `json.load`; a re-analysed source is never answered by the old copy (ADR-10) |
-| Output Mode | Compact by default, full on request, offline converter | 1.02 GB instead of 24.62 GB on the E6 corpus with nothing lost for any consumer; published full documents stay reproducible (ADR-11) |
+| Output Mode | Compact by default, full on request, offline converter | 1.02 GB instead of 24.62 GB on the E6 corpus with nothing lost for any consumer at its defaults; the content of published full documents stays reproducible (ADR-11) |
 
 ### ADR-12: Distance Paths on Request, Read Only by the `path` Subcommand
 
@@ -207,7 +210,7 @@ flowchart LR
 
     subgraph rv-static-analysis
         SA["StaticAnalyzer"]
-        CACHE{"JSON exists and\nrecords this run's key?"}
+        CACHE{"JSON exists and records\nthis run's horizon and key?"}
         GATOR["GATOR subprocess\n(RvsecAnalysisClient)"]
         JSON["analysis JSON\n{reachability, windows,\ntransitions, components,\ncodePackage, class_defs_under_key}"]
         GATE{"check_denominator\n(INV-ANA-69)"}
@@ -231,8 +234,8 @@ flowchart LR
     APK --> SA
     MOP --> SA
     SA --> CACHE
-    CACHE -->|absent, or recorded key disagrees| GATOR
-    CACHE -->|recorded key matches, or none| SAP
+    CACHE -->|absent, other horizon, unreadable top, or recorded key disagrees| GATOR
+    CACHE -->|horizon matches, and recorded key matches or none| SAP
     GATOR --> JSON
     JSON --> GATE
     GATE -->|refused| FAIL
@@ -429,7 +432,7 @@ rv-static-analysis/
 │   └── parser/
 │       └── static/
 │           └── static_analysis_parser.py  # StaticAnalysisParser (JSON -> domain, parsed copy)
-├── tests/                              # 266 tests
+├── tests/                              # 308 tests
 │   ├── conftest.py                     # Shared fixtures
 │   ├── test_config.py                  # Config validation (13)
 │   ├── test_static_copy_audit.py       # INV-ANA-84: no other module names the parsed copy
@@ -534,11 +537,12 @@ sequenceDiagram
     SA->>CFG: get_tool_command(apk, output, mop_dir)
     CFG-->>SA: command args list
     SA->>FS: check if output JSON exists
-    SA->>SAP: parse_file(json_path) to read its recorded key
-    alt Cache hit (recorded key equals this run's, or none recorded)
+    SA->>FS: read its top for distMax (10 when absent)
+    SA->>SAP: parse_file(json_path) to read its recorded key<br/>(only when the horizons agree)
+    alt Cache hit (recorded horizon equals this run's, and recorded key equals this run's or none recorded)
         SA-->>Caller: StaticAnalysisResult(cached)
-    else Cache miss, or recorded key disagrees
-        Note over SA,FS: A disagreeing key is removed<br/>and regenerated (INV-ANA-70)
+    else Cache miss, other horizon, unreadable top, or recorded key disagrees
+        Note over SA,FS: A disagreeing horizon or key is removed<br/>and regenerated (INV-ANA-102, INV-ANA-70)
         SA->>CMD: execute(command, timeout)
         CMD->>GATOR: subprocess.run(...)
         Note over GATOR: Writes components, reachability,<br/>windows, transitions, then<br/>the complete sentinel
@@ -606,7 +610,8 @@ flowchart LR
 - `StaticAnalysisResult(BaseValidatedModel)`: Value object for analysis outcomes
 - `StaticAnalysisException(RVAndroidError)`: Domain-specific exception
 
-**Key methods added by the scope-key work**:
+**Key methods of the cache check and the gate**:
+- `_recorded_dist_max(result_file)`: the distance horizon a stored artefact was computed with, read from its top in streaming — the `distMax` member, or `DEFAULT_DIST_MAX` (10) when the first member GATOR writes after it comes first; `None` (regenerate) when the top cannot be read or `distMax` is not an integer ≥ 1 (INV-ANA-102)
 - `_disagreeing_recorded_key(result_file)`: the key a stored artefact records when it is not this run's; `None` (reuse) covers an artefact with no key, one with this run's key, and one that cannot be parsed
 - `_check_denominator()`: parses the artefact just written and hands `classes`, `class_defs_under_key` and the effective key to the gate; skips artefacts recording no count
 - `_run_analysis()`: passes both `code_package` and `code_package_source` to `get_tool_command()`
@@ -622,7 +627,7 @@ flowchart LR
 **Location**: `src/rv_static_analysis/config.py`
 
 **Key Classes**:
-- `RVStaticAnalysisConfig(BaseValidatedModel)`: Pydantic model with field validators and `model_post_init` for path resolution. Notable fields: `cg_algorithm` (default `spark`), `jvm_memory`, `analysis_timeout`, `skip_wtg` (default `False` — when True the generated command includes `-clientParam skipWtg=true`), `full_output` (default `False` — when True the command includes `-clientParam fullOutput=true` and GATOR writes the full document; otherwise nothing is appended and GATOR writes the compact one, ADR-11), `distance_paths` (default `False` — when True the command includes `-clientParam distancePaths=true` and GATOR adds `pathMethods`/`distancePaths`, ADR-12). `get_tool_command()` resolves the launcher under `sys.executable` (the running interpreter) to remain portable across hosts without `/usr/bin/python`.
+- `RVStaticAnalysisConfig(BaseValidatedModel)`: Pydantic model with field validators and `model_post_init` for path resolution. Notable fields: `cg_algorithm` (default `spark`), `jvm_memory`, `analysis_timeout`, `skip_wtg` (default `False` — when True the generated command includes `-clientParam skipWtg=true`), `full_output` (default `False` — when True the command includes `-clientParam fullOutput=true` and GATOR writes the full document; otherwise nothing is appended and GATOR writes the compact one, ADR-11), `distance_paths` (default `False` — when True the command includes `-clientParam distancePaths=true` and GATOR adds `pathMethods`/`distancePaths`, ADR-12), `dist_max` (default `None`, Pydantic `ge=1` — when set the command includes `-clientParam distMax=<N>`, GATOR's searches stop at `N` and the document records `distMax`; otherwise nothing is appended and GATOR searches to `DEFAULT_DIST_MAX` = 10, INV-ANA-99). `get_tool_command()` resolves the launcher under `sys.executable` (the running interpreter) to remain portable across hosts without `/usr/bin/python`.
 
 **Dependencies**:
 - External: rv-android-core (`BaseValidatedModel`, `ConfigurationError`, constants)
@@ -706,7 +711,7 @@ flowchart LR
 
 **CLI Library**: `argparse` (NOT Click). This matters for env-var handling: `argparse` has no `envvar=` analogue, so this entry-point does NOT honor `RV_SA_TIMEOUT` or `RV_JVM_MEMORY` directly. The env-var bridge only exists through `rv-experiment` (gh55 §9 Click `envvar=` gambiarra). Standalone runs must pass `--analysis-timeout` (gh55 added) or `--jvm-memory` explicitly. The architectural fix that gives every L5 entry-point uniform env-var resolution lives at `openspec/changes/gh-tbd-env-vars-architecture/`.
 
-**CLI Flags (selected)**: `--analysis-timeout SECS` overrides per-APK GATOR timeout; `--skip-wtg` (gh57) propagates to GATOR as `-clientParam skipWtg=true` so the client emits reachability + `windows[]` and returns without invoking `WTGBuilder.build()`; `--jvm-memory SIZE` sets the JVM `-Xmx` for the GATOR subprocess; `--package-detector` / `--strip-build-type-suffix` choose the scope key; `--force` removes the stored artefact so the run regenerates it under the same key; `--full-output` (on `analyze` and `batch`) sets `full_output`, so GATOR writes the full document. `--distance-paths` (on `analyze` and `batch`) sets `distance_paths`, so GATOR also writes the distance paths. A cached artefact is reused whatever mode wrote it, so `--full-output` or `--distance-paths` regenerates one only together with `--force`.
+**CLI Flags (selected)**: `--analysis-timeout SECS` overrides per-APK GATOR timeout; `--skip-wtg` (gh57) propagates to GATOR as `-clientParam skipWtg=true` so the client emits reachability + `windows[]` and returns without invoking `WTGBuilder.build()`; `--jvm-memory SIZE` sets the JVM `-Xmx` for the GATOR subprocess; `--package-detector` / `--strip-build-type-suffix` choose the scope key; `--force` removes the stored artefact so the run regenerates it under the same key and horizon; `--full-output` (on `analyze` and `batch`) sets `full_output`, so GATOR writes the full document. `--distance-paths` (on `analyze` and `batch`) sets `distance_paths`, so GATOR also writes the distance paths. A cached artefact is reused whatever mode wrote it, so `--full-output` or `--distance-paths` regenerates one only together with `--force`. `--dist-max N` (on `analyze` and `batch`) sets `dist_max`; its argparse type `_positive_int` refuses anything but an integer ≥ 1 with exit status 2 before a configuration exists, and a stored artefact of another horizon is regenerated without `--force`.
 
 **`compact INPUT OUTPUT`**: calls `compact_document()` through `handle_compact_command()`. Exit 0 on success; exit 1 with one line on stderr (`Compact Error: ...`, whitespace collapsed because the reader's parse errors span several lines and a batch driver reads one line per document) on `CompactRefused`, `ValueError` (empty, non-JSON or non-object input) or `OSError`; exit 2 is argparse's usage error.
 
@@ -836,7 +841,7 @@ classDiagram
 1. CLI receives `batch --apks-dir /apks --output /output` command
 2. `handle_batch_command()` iterates APK files in the directory
 3. For each APK, creates `StaticAnalyzer` and calls `analyze()`
-4. Caching skips previously analyzed APKs whose artefact records this run's scope key (or none); `--force` skips the cache entirely
+4. Caching skips previously analyzed APKs whose artefact records this run's horizon and this run's scope key (or none); `--force` skips the cache entirely
 5. Continue-on-error flag allows the batch to proceed past individual failures
 6. Aggregate summary reports total, successful, failed, cached counts
 
@@ -879,7 +884,7 @@ classDiagram
 | Type | Location | Purpose |
 |------|----------|---------|
 | Unit (parser) | `tests/parser/static/test_static_analysis_parser.py` | JSON sections, edge cases, truncation at every cut point (`TestTruncatedJSON`, INV-ANA-81), model equality with `json.load` (`TestStreamingEquivalence`, INV-ANA-80), the parsed-copy cache (`TestParsedCopyCache`, INV-ANA-82/83), artefact-scoped parsing (INV-ANA-59/60/61) and artefact-spelling preservation (INV-ANA-67) |
-| Unit (converter) | `tests/test_compact_converter.py` | 43 tests: the INV-ANA-85 reduction, marker placement with and without `distanceTargets`, Gson escapes written out literally rather than computed with `json.dumps`, every refusal leaving no output, the atomic write and the CLI exit codes (INV-ANA-87) |
+| Unit (converter) | `tests/test_compact_converter.py` | 44 tests: the INV-ANA-85 reduction, marker placement with and without `distanceTargets`, Gson escapes written out literally rather than computed with `json.dumps`, every refusal leaving no output, the atomic write and the CLI exit codes (INV-ANA-87) |
 | Unit (path query) | `tests/test_path_query.py` | Chains for every pair and for `--target`, the refusals, a broken chain detected rather than printed short, a method with no pair printing nothing (INV-ANA-98) |
 | Equivalence | `tests/test_compact_equivalence.py` | The `cryptoapp.apk.json` fixture and its compact form parse to the same model, compared field by field (INV-ANA-89) |
 | Parity (workspace) | `rv-android/tests/parity/test_distance_pair_constants.py` | The reduction constants agree in Java, in the converter and in `aperv-tool` (INV-ANA-88) |
@@ -887,11 +892,12 @@ classDiagram
 | Unit (analyzer) | `tests/analysis/static/test_static_analysis.py` | Caching, timeout handling, error scenarios (mocked Command) |
 | Unit (gate) | `tests/analysis/static/test_denominator_gate.py` | The three refusals and the admission that matters (a genuinely small app), plus wiring tests through `StaticAnalyzer.analyze()` -- without those, the gate could be written and never called with every other test still green |
 | Integration (scope key) | `tests/analysis/static/test_scope_key_policy.py` | The key's whole journey: what the run tells GATOR, what the artefact carries back, and what a stored artefact is allowed to answer for (INV-ANA-66/70) |
-| Unit (CLI) | `tests/cli/` | 44 tests over flag parsing, mutual exclusion, env-var resolution and `--full-output` reaching the GATOR command; `test_distance_paths.py` checks that `--distance-paths` reaches it as `-clientParam distancePaths=true` and that nothing does without it |
+| Unit (horizon reuse) | `tests/analysis/static/test_static_analysis_horizon_reuse.py` | Reuse under the same horizon, regeneration under another, an absent `distMax` read as 10, an unreadable top or a malformed `distMax` regenerated, a document truncated inside `transitions` keeping its horizon, a compact document reused under `--full-output`, and the key check running only when the horizons agree (INV-ANA-102) |
+| Unit (CLI) | `tests/cli/` | 60 tests over flag parsing, mutual exclusion, env-var resolution and `--full-output` reaching the GATOR command; `test_distance_paths.py` checks that `--distance-paths` reaches it as `-clientParam distancePaths=true` and that nothing does without it; `test_dist_max.py` checks the same for `--dist-max N` and `-clientParam distMax=N`, the Pydantic bound, and that an invalid value exits 2 naming the option without starting GATOR |
 | Unit (config) | `tests/test_config.py` | 13 tests covering path resolution, validation, command generation (including `-clientParam codePackage=` and `codePackageSource=`) |
 | Fixture | `tests/resources/cryptoapp.apk.json` | Reference analysis output for baseline equivalence tests |
 
-Total: 266 tests. Run them with the CI contract flags: `uv run pytest tests/ --import-mode=importlib -o "addopts="`.
+Total: 308 tests. Run them with the CI contract flags: `uv run pytest tests/ --import-mode=importlib -o "addopts="`.
 
 ## Related Documentation
 

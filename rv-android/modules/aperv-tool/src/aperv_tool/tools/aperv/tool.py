@@ -22,6 +22,12 @@ model. Within rv-platform, it sits alongside other AbstractTool implementations
   variant name and its override deltas
 - Static-data artifact derivation: projects static analysis host-side and pushes
   only the projection, so the device never parses a call graph
+- Weight ladder: the `mop_weights` setting reaches the jar as `ape.mopWeights`, and
+  its length sets the cut the artifact is derived at, bounded by the horizon the
+  static analysis searched to
+- Heap growth limit: every cell sets dalvik.vm.heapgrowthlimit to
+  APE_HEAP_GROWTH_LIMIT before the launch, through the call the `ape` built-in
+  makes, so both tools start APE's VM with the same heap
 - Timeout-aware execution: treats timeout as expected exit for exploration tools
 - Trace compression: writes a .gz copy beside the raw capture, on every exit path
 
@@ -37,7 +43,8 @@ model. Within rv-platform, it sits alongside other AbstractTool implementations
 ### Integration Points:
 
 - Input: Task (device serial, timeout, trace file path), App (package name)
-- Output: trace file with APE-RV stdout, ape.properties pushed to device
+- Output: trace file with APE-RV stdout, ape.properties pushed to device,
+  dalvik.vm.heapgrowthlimit set on the device until the emulator stops
 - Upstream: JarResolver finds ape-rv.jar; rv-platform supplies Task and App
 - Downstream: rv-android logcat reads Coverage.aj output during execution
 """
@@ -64,6 +71,7 @@ from rv_android_core.util.analysis_document import (
     digest_of_file,
     read_analysis_document,
 )
+from rv_android_core.util.android.android import Android
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import (
     ConfigurationError,
@@ -110,11 +118,23 @@ STATIC_DATA_FROM_STATIC_ANALYSIS = "static_analysis"
 # the host loopback interface, where SGLang listens on a host-driven run.
 LLM_URL_DEFAULT = "http://10.0.2.2:30000/v1"
 
-# How many times the MOP coin may take one (activity, widget) key on the three cells
-# that mount MOP. The jar's default is 1 and no group block states the key; the author
-# set the cells to 2 on this side after the e03igg2 campaign, where the coin at 2 was
-# the only arm above APE in misuses (design D18).
-MOP_COIN_LEDGER_MAX_INTERACTIONS = 2
+# The weight ladder: one weight per distance level, which the jar reads as
+# `ape.mopWeights`, comma-separated. The tool DSL splits its parameters on commas, so
+# there the ladder is written with `;` (`aperv:mop@mop_weights=500;400;300`). The
+# jar accepts 1 to 10 levels and aborts on more, so the limit is the jar's and does
+# not follow the static analysis's horizon. The ladder's length deepens the cut the
+# artifact is derived at (INV-APV-70).
+MOP_WEIGHTS_KEY = "mop_weights"
+MOP_WEIGHTS_MAX_LEVELS = 10
+MOP_WEIGHTS_DSL_SEPARATOR = ";"
+MOP_WEIGHT_PATTERN = re.compile(r"[0-9]+")
+
+# The compaction marker GATOR writes on a compact document, `{"weighedMax": w,
+# "k": k}`: per method, the document keeps only the pairs at `d <= w` and the `k`
+# nearest. A document without it is a full one, which keeps every pair up to its
+# horizon.
+DISTANCE_PAIRS_KEY = "distancePairs"
+DISTANCE_PAIRS_WEIGHED_MAX_KEY = "weighedMax"
 
 # Strategies accepted by configure(), matching what the jar's ApeAgent.createAgent builds.
 # "bfs" and "dfs" are absent deliberately: they were never agent types, and a run configured
@@ -216,21 +236,20 @@ APERV_PROPERTY_MAPPING = {
     "activity_trigger_stagnation_step": "ape.activityTriggerStagnationStep",
     "activity_trigger_max_per_run": "ape.activityTriggerMaxPerRun",
     # The scoring mode, "flag" (a yes/no mark) or "distance" (the static call-graph
-    # distance of the artifact), which the MOP block states as "distance", and the five
-    # keys only the distance mode reads: the weights for d <= 1, 2 and 3, the first
-    # interactions after which a target retires, and the launcher's distance bound.
+    # distance of the artifact), which the MOP block states as "distance", and the
+    # three keys only the distance mode reads: the weight ladder (one weight per
+    # distance level; its length is the cut, MOP_WEIGHTS_KEY), the interactions after
+    # which a target retires, and the launcher's distance bound.
     "mop_scoring": "ape.mopScoring",
-    "mop_weight_d1": "ape.mopWeightD1",
-    "mop_weight_d2": "ape.mopWeightD2",
-    "mop_weight_d3": "ape.mopWeightD3",
+    MOP_WEIGHTS_KEY: "ape.mopWeights",
     "mop_retire_after": "ape.mopRetireAfter",
     "mop_launcher_dmax": "ape.mopLauncherDmax",
     # p_M, the probability that a step offered to MOP is taken by it; the MOP block
     # states 1.0, so a lower dose is an ablation.
     "mop_coin_percentage": "ape.mopCoinPercentage",
-    # How many times the MOP coin may take one (activity, widget) key; the jar default
-    # is 1, no block states it, and the three MOP cells set
-    # MOP_COIN_LEDGER_MAX_INTERACTIONS.
+    # How many times the MOP coin may take one (activity, widget) key. No cell states
+    # it: the MOP cells run the paired jar's default, calibration v6's F1 value 4, and
+    # the key serves DSL ablations.
     "mop_coin_ledger_max_interactions": "ape.mopCoinLedgerMaxInteractions",
     # LLM: the vision-language model. llm_url is the one deployment fact the LLM cells
     # carry; the LLM block states the sampling configuration and the dose.
@@ -268,6 +287,74 @@ APERV_PROPERTY_MAPPING = {
 CORPUS_BASIS_PATTERN = re.compile(r"^[A-Za-z0-9._-]+:[0-9a-f]{64}$")
 
 
+def _parse_mop_weights(value: Any) -> tuple[int, ...]:
+    """Normalize `mop_weights` to 1 to MOP_WEIGHTS_MAX_LEVELS non-negative ints.
+
+    Accepts the tool-DSL string (`"500;400;300"`) or a list or tuple of ints from a
+    variant dict. Anything else raises ConfigurationError naming the key, before any
+    device interaction (INV-APV-02).
+    """
+    if isinstance(value, str):
+        parts = value.split(MOP_WEIGHTS_DSL_SEPARATOR)
+        weights = (
+            tuple(int(part) for part in parts)
+            if all(MOP_WEIGHT_PATTERN.fullmatch(part) for part in parts)
+            else ()
+        )
+    elif isinstance(value, (list, tuple)) and all(
+        isinstance(weight, int) and not isinstance(weight, bool) for weight in value
+    ):
+        weights = tuple(value)
+    else:
+        weights = ()
+    if not 1 <= len(weights) <= MOP_WEIGHTS_MAX_LEVELS or any(
+        weight < 0 for weight in weights
+    ):
+        raise ConfigurationError(
+            f"aperv: '{MOP_WEIGHTS_KEY}' must be 1 to {MOP_WEIGHTS_MAX_LEVELS} "
+            f"non-negative integers, written "
+            f"'{MOP_WEIGHTS_DSL_SEPARATOR}'-separated in "
+            f"the tool DSL (e.g. 500{MOP_WEIGHTS_DSL_SEPARATOR}400"
+            f"{MOP_WEIGHTS_DSL_SEPARATOR}300); got {value!r}"
+        )
+    return weights
+
+
+def _artifact_name(apk_name: str, cut: int) -> str:
+    """The cached artifact's file name for a cut (INV-APV-72).
+
+    `<apk>.mop.json` at `DIST_WEIGHED_MAX`, `<apk>.cut<c>.mop.json` at any other cut
+    `c`. The cut is not written into the artifact, so the name is what keeps an
+    artifact derived at one cut from being reused at another.
+    """
+    if cut == DIST_WEIGHED_MAX:
+        return f"{apk_name}{ARTIFACT_SUFFIX}"
+    return f"{apk_name}.cut{cut}{ARTIFACT_SUFFIX}"
+
+
+def _recorded_weighed_max(document: dict, source_path: str) -> int | None:
+    """The `distancePairs.weighedMax` a compact document records, or None for a
+    full document. A malformed marker is refused rather than guessed.
+
+    Raises:
+        RVToolExecutionError: The marker is not an object carrying an integer
+            `weighedMax`.
+    """
+    if DISTANCE_PAIRS_KEY not in document:
+        return None
+    marker = document[DISTANCE_PAIRS_KEY]
+    weighed = (
+        marker.get(DISTANCE_PAIRS_WEIGHED_MAX_KEY) if isinstance(marker, dict) else None
+    )
+    if isinstance(weighed, bool) or not isinstance(weighed, int):
+        raise RVToolExecutionError(
+            f"{source_path}: malformed '{DISTANCE_PAIRS_KEY}' marker {marker!r}; "
+            f'expected {{"{DISTANCE_PAIRS_WEIGHED_MAX_KEY}": <int>, "k": <int>}}',
+            tool_name=APERV_TOOL_NAME,
+        )
+    return weighed
+
+
 class ApeRVTool(AbstractTool):
     """
     APE-RV exploration tool for rv-platform integration.
@@ -279,8 +366,8 @@ class ApeRVTool(AbstractTool):
     ### Role in the System:
     Implements the AbstractTool interface so rv-platform can dispatch APE-RV
     as a first-class exploration tool alongside rv-agent. Manages
-    the full device interaction lifecycle: JAR push, properties push, execution,
-    and empty-trace detection.
+    the full device interaction lifecycle: JAR push, properties push, the heap
+    growth limit, execution, and empty-trace detection.
 
     ### Architectural Decisions:
     - process_pattern shared with builtin ape tool (INV-APV-07, D8): ape and
@@ -401,11 +488,11 @@ class ApeRVTool(AbstractTool):
         - `overrides={"llm_url": ...}` on the two LLM cells, because the LLM preset
           needs a server and a URL names a machine, not a cell (INV-APV-38).
 
-        The one key a cell carries that the jar could know is the MOP coin's ledger
-        budget: `mop`, `as_mop` and `as_mop_llm` set
-        `mop_coin_ledger_max_interactions` to 2 against the jar's default of 1,
-        because the author placed that default here and not in the jar's MOP block
-        (design D18). `mop_nolaunch` inherits it from `mop`.
+        No cell states a MOP parameter. The coin's ledger budget, the weight ladder,
+        the retirement and the launcher cadence take the jar's defaults, which on the
+        paired jar are calibration v6's finalist F1. An unstated key of a mounted
+        feature takes the jar's default, so the cells rely on the jar they run with;
+        the migration tier checks that default (`tests/migration/test_cells.py`).
 
         A dose or any other mapped key is an ablation expressed through the tool
         DSL (`aperv:as_mop@mop_coin_percentage=0.5`) unless it shares containers
@@ -431,9 +518,7 @@ class ApeRVTool(AbstractTool):
                 "variant": "mop",
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
-                "overrides": {
-                    "mop_coin_ledger_max_interactions": MOP_COIN_LEDGER_MAX_INTERACTIONS
-                },
+                "overrides": {},
             },
             "as": {
                 "preset": "as",
@@ -449,9 +534,7 @@ class ApeRVTool(AbstractTool):
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
                 "broadcast_catalog": True,
-                "overrides": {
-                    "mop_coin_ledger_max_interactions": MOP_COIN_LEDGER_MAX_INTERACTIONS
-                },
+                "overrides": {},
             },
             # The LLM cells carry the server URL. configure() reads no environment
             # (INV-TOOL-20): rv-experiment reads APERV_LLM_BASE_URL and injects it as a
@@ -472,12 +555,7 @@ class ApeRVTool(AbstractTool):
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
                 "broadcast_catalog": True,
-                "overrides": {
-                    "mop_coin_ledger_max_interactions": (
-                        MOP_COIN_LEDGER_MAX_INTERACTIONS
-                    ),
-                    "llm_url": LLM_URL_DEFAULT,
-                },
+                "overrides": {"llm_url": LLM_URL_DEFAULT},
             },
             # The mop cell with one ablated key added, named because it shares
             # containers with mop (see the docstring).
@@ -486,12 +564,7 @@ class ApeRVTool(AbstractTool):
                 "variant": "mop_nolaunch",
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
-                "overrides": {
-                    "mop_coin_ledger_max_interactions": (
-                        MOP_COIN_LEDGER_MAX_INTERACTIONS
-                    ),
-                    "activity_trigger_enabled": False,
-                },
+                "overrides": {"activity_trigger_enabled": False},
             },
         }
 
@@ -512,8 +585,10 @@ class ApeRVTool(AbstractTool):
             ConfigurationError: If strategy is absent or outside
                 APERV_AVAILABLE_STRATEGIES, if preset or variant is absent or empty, if
                 overrides is not a dict, if a top-level key is neither a mapped override
-                nor a recognised orchestration key (INV-APV-39), or if `corpus_basis` is
-                present and does not match CORPUS_BASIS_PATTERN
+                nor a recognised orchestration key (INV-APV-39), if `mop_weights` is
+                present and is not 1 to MOP_WEIGHTS_MAX_LEVELS non-negative integers,
+                or if `corpus_basis` is present and does not match
+                CORPUS_BASIS_PATTERN
         """
         # Validate eagerly so experiment YAML typos are caught before any device
         # interaction — a failed push mid-experiment wastes minutes of emulator time.
@@ -600,6 +675,15 @@ class ApeRVTool(AbstractTool):
             raise ConfigurationError(
                 f"aperv: override key(s) {sorted(unmapped)} have no ape.* property "
                 "mapping, so the jar would reject the properties file."
+            )
+
+        # The ladder is checked and normalized to a tuple of ints here, before any
+        # push, after the fold so that a DSL value and a variant's list take the same
+        # path. _push_properties() writes it with commas, and _derive_mop_artifact()
+        # derives at max(DIST_WEIGHED_MAX, its length).
+        if MOP_WEIGHTS_KEY in self._tool_config["overrides"]:
+            self._tool_config["overrides"][MOP_WEIGHTS_KEY] = _parse_mop_weights(
+                self._tool_config["overrides"][MOP_WEIGHTS_KEY]
             )
 
         # A malformed corpus basis is a broken assertion rather than a broken run, and
@@ -734,34 +818,45 @@ class ApeRVTool(AbstractTool):
         """
         Return the host path of the derived MOP artifact, generating it when needed.
 
-        The artifact is a pure function of the full static-analysis JSON and the
-        generator's format, so freshness is a comparison of both rather than a
-        timestamp one: mtime does not survive a copy, a resume or a container
-        boundary, and a stale artifact would arm a run against a substrate that no
-        longer describes the app. The format is part of the key because the digest
-        names the input, not the derivation: after a format bump a cached artifact
-        of the old format still matches its source's digest, and pushing it to a
-        jar that reads only the new format would abort every cell that reads it
-        (INV-APV-47). Both fields live inside the artifact, so there is no sidecar
-        to keep consistent.
+        The artifact is a pure function of the full static-analysis JSON, the
+        generator's format and the cut, so freshness is a comparison of the three
+        rather than a timestamp one: mtime does not survive a copy, a resume or a
+        container boundary, and a stale artifact would arm a run against a
+        substrate that no longer describes the app. The format is part of the key
+        because the digest names the input, not the derivation: after a format bump
+        a cached artifact of the old format still matches its source's digest, and
+        pushing it to a jar that reads only the new format would abort every cell
+        that reads it (INV-APV-47). The digest and the format live inside the
+        artifact, so there is no sidecar to keep consistent. The cut is not written
+        into the artifact; it is in the file name (`_artifact_name`, INV-APV-72),
+        so an artifact derived at one cut is never pushed for another.
+
+        The cut is the one `_derive_cut()` reads from the cell's ladder:
+        `DIST_WEIGHED_MAX` without one, the ladder's length when it is longer.
 
         The source is hashed in chunks before anything parses it, so a cache hit
         costs one sequential read of the file and no parse. On a miss the file is
         read as a stream of JSON events (`read_analysis_document`) that folds each
         method's `targetDistances` into the pairs the artifact can carry: the
-        per-target minima at `d <= DIST_WEIGHED_MAX` and the `DIST_K` nearest
-        (INV-APV-64). Those pairs make a gh120 document several gigabytes, and a
-        whole-document parse peaks at about 3.1 times the file size; neither the
-        file's text nor a pair that cannot reach the artifact is ever held. The
-        reduction is exact because `derive()` merges by the per-target minimum and
-        cuts only at emission, so the artifact is byte-identical to one derived
-        from the whole document.
+        per-target minima at `d <= cut` and the `DIST_K` nearest (INV-APV-64).
+        Those pairs make a gh120 document several gigabytes, and a whole-document
+        parse peaks at about 3.1 times the file size; neither the file's text nor a
+        pair that cannot reach the artifact is ever held. The reduction is exact
+        because `derive()` merges by the per-target minimum and cuts only at
+        emission, so the artifact is byte-identical to one derived from the whole
+        document at the same cut.
 
         The read is strict where the static-analysis parser is tolerant: a
         document whose root object never closes — a producer killed mid-write, or
         bytes that stop being JSON partway — is refused, even when every section
         the derivation reads was complete, because an interrupted write must not
         arm a run.
+
+        A document that cannot carry the cut is refused too (INV-APV-71). A compact
+        document keeps, per method, no pair beyond its `distancePairs.weighedMax`
+        but the `DIST_K` nearest, so deriving it at a deeper cut would run the
+        shallower one without notice; and `derive()` refuses a cut above the
+        horizon the document was searched to.
 
         Writes go through a temporary file in the same directory followed by an
         atomic rename, so a crash mid-write cannot leave a truncated artifact that a
@@ -774,21 +869,26 @@ class ApeRVTool(AbstractTool):
             task: Task whose `results_dir` and `config.apk_name` locate the full JSON.
 
         Returns:
-            Path of the `<apk_name>.mop.json` whose `source.digest` matches the
-            current full JSON and whose `formatVersion` is `FORMAT_VERSION`.
+            Path of the cut's artifact (`<apk_name>.mop.json` at
+            `DIST_WEIGHED_MAX`, `<apk_name>.cut<c>.mop.json` at any other cut `c`)
+            whose `source.digest` matches the current full JSON and whose
+            `formatVersion` is `FORMAT_VERSION`.
 
         Raises:
             RVToolExecutionError: The full JSON is unreadable, empty, not JSON,
                 not an object, or truncated (which covers bytes that are not
-                UTF-8), the derivation refused it, or the artifact could not be
-                written. `MemoryError` is caught with the rest because the reduced
-                document is still built in memory before deriving, and a bare one
-                would lose the path and tool context the caller needs to act. No
-                partial file survives any of those paths.
+                UTF-8), it is compacted below the cut or carries a malformed
+                `distancePairs` marker, the derivation refused it (a cut above its
+                horizon included), or the artifact could not be written.
+                `MemoryError` is caught with the rest because the reduced document
+                is still built in memory before deriving, and a bare one would lose
+                the path and tool context the caller needs to act. No partial file
+                survives any of those paths.
         """
         source_path = os.path.join(task.results_dir, f"{task.config.apk_name}.json")
+        cut = self._derive_cut()
         artifact_path = os.path.join(
-            task.results_dir, f"{task.config.apk_name}{ARTIFACT_SUFFIX}"
+            task.results_dir, _artifact_name(task.config.apk_name, cut)
         )
 
         tmp_path = None
@@ -803,7 +903,7 @@ class ApeRVTool(AbstractTool):
                 return artifact_path
 
             document, truncated = read_analysis_document(
-                source_path, PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K)
+                source_path, PairPolicy.reduce(cut, DIST_K)
             )
             if truncated:
                 raise RVToolExecutionError(
@@ -812,10 +912,20 @@ class ApeRVTool(AbstractTool):
                     "its root object closes)",
                     tool_name=self.name,
                 )
+            recorded = _recorded_weighed_max(document, source_path)
+            if recorded is not None and recorded < cut:
+                raise RVToolExecutionError(
+                    f"Could not derive the MOP artifact from {source_path}: the "
+                    f"document is compacted at {DISTANCE_PAIRS_WEIGHED_MAX_KEY}="
+                    f"{recorded}, below the requested cut {cut}. Use a document "
+                    "written with --full-output.",
+                    tool_name=self.name,
+                )
             artifact = derive(
                 document,
                 source_file=os.path.basename(source_path),
                 source_digest=digest,
+                cut=cut,
             )
             payload = serialize_canonical(artifact)
 
@@ -850,6 +960,17 @@ class ApeRVTool(AbstractTool):
                     os.unlink(tmp_path)
                 except OSError:
                     pass
+
+    def _derive_cut(self) -> int:
+        """The cut the artifact is derived at (INV-APV-70).
+
+        max(DIST_WEIGHED_MAX, length of the cell's ladder), and DIST_WEIGHED_MAX
+        without one. The jar weighs one distance level per weight, so a longer
+        ladder needs the deeper pairs; a shorter one keeps the default cut, and the
+        jar weighs only its levels.
+        """
+        ladder = self._tool_config.get("overrides", {}).get(MOP_WEIGHTS_KEY)
+        return max(DIST_WEIGHED_MAX, len(ladder)) if ladder else DIST_WEIGHED_MAX
 
     def _cached_artifact_identity(self, artifact_path: str) -> tuple[str, int] | None:
         """
@@ -924,6 +1045,10 @@ class ApeRVTool(AbstractTool):
                 # so this branch must precede any numeric handling.
                 if isinstance(value, bool):
                     value = "true" if value else "false"
+                elif python_key == MOP_WEIGHTS_KEY:
+                    # A tuple of ints since configure(); the jar reads the ladder
+                    # comma-separated.
+                    value = ",".join(str(weight) for weight in value)
                 lines.append(f"{java_key}={value}")
         properties_content = "\n".join(lines) + "\n"
 
@@ -1229,10 +1354,10 @@ class ApeRVTool(AbstractTool):
         """
         Execute APE-RV exploration on the device.
 
-        Orchestrates JAR resolution, device push, properties push, command
-        execution, the empty-trace check, trace compression and the completion
-        check. Timeout is the expected normal exit for exploration tools, and
-        collection runs on that path too — it is where most runs end.
+        Orchestrates JAR resolution, device push, properties push, the heap growth
+        limit, command execution, the empty-trace check, trace compression and the
+        completion check. Timeout is the expected normal exit for exploration
+        tools, and collection runs on that path too — it is where most runs end.
 
         Args:
             task: Task configuration with device, timeout, trace file
@@ -1242,8 +1367,9 @@ class ApeRVTool(AbstractTool):
             RVToolTimeoutError: The exploration was still running at the command
                 timeout. This is the expected, successful ending.
             RVToolExecutionError: The exploration returned more than
-                TOOL_TEARDOWN_GRACE_S short of its budget (INV-APV-60), or a cell
-                with `static_data` had no static-analysis JSON to derive from.
+                TOOL_TEARDOWN_GRACE_S short of its budget (INV-APV-60), a cell
+                with `static_data` had no static-analysis JSON to derive from, or
+                the heap growth limit did not hold (INV-APV-73).
         """
         self.logger.info(f"Executing APE-RV for {app.package_name}")
 
@@ -1360,6 +1486,14 @@ class ApeRVTool(AbstractTool):
                 self.logger.warning(
                     f"Could not write LLM provenance to {provenance_path}: {e}"
                 )
+
+        # Step 2c: Raise the heap growth limit APE-RV's VM starts with, in every cell
+        # (INV-APV-73). app_process reads dalvik.vm.heapgrowthlimit when it starts the
+        # VM, and the jar loads the whole MOP artifact into that heap. The value and
+        # the set with its read-back live in rv-android-core, and the `ape` built-in
+        # makes the same call (INV-TOOL-30), so `base` keeps the APE's heap. A limit
+        # that does not read back raises here, before the exploration starts.
+        Android.set_ape_heap_growth_limit(self.name, device_serial)
 
         # Step 3: Build and execute main command
         main_cmd = self._build_main_command(app, device_serial, timeout_seconds)

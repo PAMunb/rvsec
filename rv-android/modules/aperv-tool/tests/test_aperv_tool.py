@@ -2,7 +2,8 @@
 Unit tests for ApeRVTool.
 
 Tests cover: tool spec, the cell variants, configure, ape.properties composition, the
-device push flow (static-data artifact and broadcast catalog), JAR search paths, command
+device push flow (static-data artifact and broadcast catalog), the weight ladder and the
+cut the artifact is derived at, the heap growth limit, JAR search paths, command
 building, constants, and empty trace detection.
 """
 
@@ -46,11 +47,8 @@ from aperv_tool.tools.aperv.tool import (
 CELLS = ("base", "mop", "as", "as_mop", "as_llm", "as_mop_llm")
 STATIC_CELLS = ("as", "as_mop", "as_llm", "as_mop_llm")
 LLM_CELLS = ("as_llm", "as_mop_llm")
-# The cells that mount MOP, which carry the coin's ledger budget (design D18).
-MOP_CELLS = ("mop", "as_mop", "as_mop_llm")
 # The ablation variant that shares containers with its cell, so it carries a name.
 ABLATIONS = ("mop_nolaunch",)
-LEDGER = {"mop_coin_ledger_max_interactions": 2}
 
 
 def _stub_clock(*readings):
@@ -97,6 +95,22 @@ def _written_properties(tool, tmp_path, artifact_pushed=False):
     open(trace, "w").close()
     tool._push_properties("emulator-5554", trace, artifact_pushed)
     return captured["properties"]
+
+
+@pytest.fixture(autouse=True)
+def _no_heap_growth_limit_on_a_device(monkeypatch):
+    """Keep every run of execute_tool_specific_logic() off adb.
+
+    The flow sets the heap growth limit through `Android.set_ape_heap_growth_limit`,
+    which runs `adb shell su 0 setprop`. A test that runs the flow with its pushes
+    and main command stubbed would otherwise reach a real adb. The tests of the call
+    itself (`TestHeapGrowthLimit`) replace this stand-in with a recording one.
+    """
+    monkeypatch.setattr(
+        aperv_mod,
+        "Android",
+        SimpleNamespace(set_ape_heap_growth_limit=lambda tool_name, device_name: None),
+    )
 
 
 class TestToolSpec:
@@ -158,20 +172,15 @@ class TestVariants:
         assert "static_data" not in base
         assert "broadcast_catalog" not in base
 
-    def test_each_cell_carries_the_server_url_or_the_ledger_budget(self):
-        # Spec scenario "Each cell carries the server URL or the ledger budget, and nothing
-        # else". INV-APV-38: the LLM preset needs a server, and a URL names a machine, not a
-        # cell; D18: the MOP cells run the coin's ledger at 2 against the jar's default of 1.
+    def test_each_cell_carries_the_server_url_and_nothing_else(self):
+        # Spec scenario "Each cell carries the server URL, and nothing else".
+        # INV-APV-38: the LLM preset needs a server, and a URL names a machine, not a
+        # cell. The MOP cells state no MOP parameter and run the jar's defaults.
         variants = ApeRVTool.get_variants()
-        assert variants["as_mop_llm"]["overrides"] == {
-            **LEDGER,
-            "llm_url": LLM_URL_DEFAULT,
-        }
+        assert variants["as_mop_llm"]["overrides"] == {"llm_url": LLM_URL_DEFAULT}
         assert variants["as_llm"]["overrides"] == {"llm_url": LLM_URL_DEFAULT}
         assert LLM_URL_DEFAULT == "http://10.0.2.2:30000/v1"
-        assert variants["mop"]["overrides"] == LEDGER
-        assert variants["as_mop"]["overrides"] == LEDGER
-        for name in set(CELLS) - set(LLM_CELLS) - set(MOP_CELLS):
+        for name in set(CELLS) - set(LLM_CELLS):
             assert variants[name]["overrides"] == {}, name
 
     def test_the_launcher_ablation_is_the_mop_cell_without_its_launcher(self):
@@ -181,7 +190,7 @@ class TestVariants:
         assert nolaunch["preset"] == "mop"
         assert nolaunch["variant"] == "mop_nolaunch"
         assert nolaunch["strategy"] == "sata"
-        assert nolaunch["overrides"] == {**LEDGER, "activity_trigger_enabled": False}
+        assert nolaunch["overrides"] == {"activity_trigger_enabled": False}
         same = set(nolaunch) - {"variant", "overrides"}
         assert same == set(variants["mop"]) - {"variant", "overrides"}
         for key in same:
@@ -966,19 +975,32 @@ class TestPushProperties:
             "ape.preset=as_mop_llm",
             "ape.variant=as_mop_llm",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
-            "ape.mopCoinLedgerMaxInteractions=2",
             "ape.llmUrl=http://10.0.2.2:30000/v1",
         ]
 
-    def test_the_mop_cells_write_the_ledger_budget(self, tmp_path):
-        # Spec scenario "The MOP cells write the ledger budget".
+    def test_the_mop_cells_write_no_mop_parameter(self, tmp_path):
+        # Spec scenario "The MOP cells write no MOP parameter": the coin's ledger
+        # budget, the ladder, the retirement and the launcher cadence take the jar's
+        # defaults.
         lines = self._capture_properties(tmp_path, _cell("mop"), artifact_pushed=True)
         assert lines == [
             "ape.preset=mop",
             "ape.variant=mop",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
-            "ape.mopCoinLedgerMaxInteractions=2",
         ]
+        calibrated = (
+            "ape.mopCoinLedgerMaxInteractions",
+            "ape.mopWeights",
+            "ape.mopRetireAfter",
+            "ape.activityTriggerStagnationStep",
+        )
+        for name in ApeRVTool.get_variants():
+            tool = ApeRVTool()
+            tool.configure(_cell(name))
+            (tmp_path / name).mkdir()
+            props = _written_properties(tool, tmp_path / name, artifact_pushed=True)
+            for key in calibrated:
+                assert f"{key}=" not in props, (name, key)
 
     def test_the_launcher_ablation_writes_its_key(self, tmp_path):
         # Spec scenario "The launcher ablation is the mop cell without its launcher".
@@ -990,10 +1012,9 @@ class TestPushProperties:
             "ape.variant=mop_nolaunch",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
             "ape.activityTriggerEnabled=false",
-            "ape.mopCoinLedgerMaxInteractions=2",
         ]
 
-    def test_a_cell_with_data_writes_exactly_four_lines(self, tmp_path):
+    def test_a_cell_with_data_writes_exactly_three_lines(self, tmp_path):
         # Spec scenario "Properties file carries preset plus deltas only".
         lines = self._capture_properties(
             tmp_path, _cell("as_mop"), artifact_pushed=True
@@ -1002,7 +1023,6 @@ class TestPushProperties:
             "ape.preset=as_mop",
             "ape.variant=as_mop",
             "ape.staticDataPath=/data/local/tmp/mop-artifact.json",
-            "ape.mopCoinLedgerMaxInteractions=2",
         ]
         assert not [ln for ln in lines if ln.startswith("ape.mopDataPath")]
 
@@ -1020,11 +1040,7 @@ class TestPushProperties:
         # ape.staticDataPath names a file on the device, so it is written only when the
         # artifact was pushed, whatever the variant declares.
         lines = self._capture_properties(tmp_path, _cell("as_mop"))
-        assert lines == [
-            "ape.preset=as_mop",
-            "ape.variant=as_mop",
-            "ape.mopCoinLedgerMaxInteractions=2",
-        ]
+        assert lines == ["ape.preset=as_mop", "ape.variant=as_mop"]
 
     def test_a_dose_ablation_writes_the_dose(self, tmp_path):
         # Spec scenario "A dose ablation writes the dose".
@@ -1095,7 +1111,6 @@ class TestPushProperties:
             "ape.preset=as_mop",
             "ape.variant=as_mop",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
-            "ape.mopCoinLedgerMaxInteractions=2",
         ]
 
     def test_unmapped_override_key_aborts_in_configure(self):
@@ -1192,14 +1207,18 @@ class TestPropertyMapping:
 
     def test_the_mapping_holds_the_group_isolation_vocabulary(self):
         # Spec scenario "The mapping holds the group-isolation vocabulary".
-        assert len(APERV_PROPERTY_MAPPING) == 66
+        assert len(APERV_PROPERTY_MAPPING) == 64
         assert {key: APERV_PROPERTY_MAPPING[key] for key in self.ADDED} == self.ADDED
+        assert APERV_PROPERTY_MAPPING["mop_weights"] == "ape.mopWeights"
         for absent in (
             "mop_target_pick_cap",
             "least_visited_priority_tiebreak",
             "mop_weight_activity",
             "step_telemetry_enabled",
             "llm_percentage_no_substrate",
+            "mop_weight_d1",
+            "mop_weight_d2",
+            "mop_weight_d3",
             "variant",
             "preset",
         ):
@@ -1216,6 +1235,9 @@ class TestPropertyMapping:
             "ape.mopDataPath",
             "ape.mopTargetPickCap",
             "ape.leastVisitedPriorityTiebreak",
+            "ape.mopWeightD1",
+            "ape.mopWeightD2",
+            "ape.mopWeightD3",
         ):
             assert written not in APERV_PROPERTY_MAPPING.values(), written
 
@@ -1239,24 +1261,24 @@ class TestPropertyMapping:
         }
 
     def test_the_distance_keys_are_mapped(self):
+        # The ladder replaces the three per-level weights, which the jar on the
+        # `ape` master retires.
         assert {
             python_key: APERV_PROPERTY_MAPPING[python_key]
             for python_key in (
                 "mop_scoring",
-                "mop_weight_d1",
-                "mop_weight_d2",
-                "mop_weight_d3",
+                "mop_weights",
                 "mop_retire_after",
                 "mop_launcher_dmax",
             )
         } == {
             "mop_scoring": "ape.mopScoring",
-            "mop_weight_d1": "ape.mopWeightD1",
-            "mop_weight_d2": "ape.mopWeightD2",
-            "mop_weight_d3": "ape.mopWeightD3",
+            "mop_weights": "ape.mopWeights",
             "mop_retire_after": "ape.mopRetireAfter",
             "mop_launcher_dmax": "ape.mopLauncherDmax",
         }
+        for retired in ("mop_weight_d1", "mop_weight_d2", "mop_weight_d3"):
+            assert retired not in APERV_PROPERTY_MAPPING, retired
 
     def test_the_live_llm_sub_parameters_stay_mapped(self):
         # Spec scenario "Live ungoverned key travels the normal path".
@@ -1993,6 +2015,9 @@ class _ExecutionHarness:
     def setup_method(self):
         self.tool = ApeRVTool()
         self.pushed = []
+        # The device-facing steps in the order they ran: ("push", device path) and
+        # ("main",) when the main command is built.
+        self.events = []
         self._real_time = aperv_mod.time
 
     def teardown_method(self):
@@ -2009,10 +2034,12 @@ class _ExecutionHarness:
         task.result.trace_file = str(trace)
         return task
 
-    def _run(self, tmp_path, name):
-        """Execute the flow for cell `name` with the device and the jar stubbed out."""
-        self.tool.configure(_cell(name))
+    def _run(self, tmp_path, name, device_id="emulator-5554", **parameters):
+        """Execute the flow for cell `name`, with the tool-DSL `parameters`, with the
+        device and the jar stubbed out."""
+        self.tool.configure(_cell(name, **parameters))
         task = self._make_task(tmp_path)
+        task.config.device_id = device_id
         app = MagicMock()
         app.package_name = "br.unb.cic.cryptoapp"
 
@@ -2022,6 +2049,7 @@ class _ExecutionHarness:
                 open(local_path, "rb").read() if os.path.isfile(local_path) else None
             )
             self.pushed.append((local_path, device_path, content))
+            self.events.append(("push", device_path))
 
         self.tool._resolve_jar_path = lambda: str(tmp_path / "ape-rv.jar")
         (tmp_path / "ape-rv.jar").write_bytes(b"jar")
@@ -2031,7 +2059,12 @@ class _ExecutionHarness:
         result.code = 0
         main_cmd = MagicMock()
         main_cmd.invoke.return_value = result
-        self.tool._build_main_command = lambda *a, **kw: main_cmd
+
+        def build_main_command(*args, **kwargs):
+            self.events.append(("main",))
+            return main_cmd
+
+        self.tool._build_main_command = build_main_command
 
         # The mocked command returns instantly, which INV-APV-60 would read as a run
         # truncated to 0 s. These tests are about what reaches the device, not about the
@@ -2279,6 +2312,440 @@ class TestBroadcastCatalogPush(_ExecutionHarness):
         assert self._catalog_pushes() == []
         assert len(self._artifact_pushes()) == 1
         assert any(p[1] == APERV_DEVICE_PROPERTIES_PATH for p in self.pushed)
+
+
+# --- The weight ladder, the derive cut and the heap growth limit -------------
+
+# A six-level ladder, whose cut is 6.
+SIX_LEVELS = "500;450;400;350;300;250"
+
+
+def _ladder_document(marker=None, **members):
+    """A document whose one widget reaches targets at d = 1, 4 and 6.
+
+    `marker` is a `distancePairs` value, which makes the document a compact one;
+    `members` are added at the top level (`distMax`, for one).
+    """
+    handler = "<com.example.L: void onClick(android.view.View)>"
+    document = {
+        "complete": True,
+        "package": "com.example",
+        "mainActivity": "com.example.Main",
+        "distanceTargets": [
+            {"signature": f"<T: void t{index}()>", "kind": "direct"}
+            for index in range(3)
+        ],
+        "reachability": [
+            {
+                "className": "com.example.L",
+                "componentType": "class",
+                "isMain": False,
+                "methods": [
+                    {
+                        "name": "onClick",
+                        "signature": handler,
+                        "reachable": True,
+                        "reachesTarget": True,
+                        "directlyReachesTarget": False,
+                        "targetDistances": [[0, 1], [1, 4], [2, 6]],
+                    }
+                ],
+            }
+        ],
+        "windows": [
+            {
+                "id": 1,
+                "type": "ACTIVITY",
+                "name": "com.example.Main",
+                "isMain": False,
+                "widgets": [
+                    {
+                        "id": 1,
+                        "idName": "b",
+                        "type": "android.widget.Button",
+                        "text": "",
+                        "hint": "",
+                        "inputType": "",
+                        "entries": [],
+                        "prompt": None,
+                        "spinnerMode": None,
+                        "contentDescription": None,
+                        "tooltipText": None,
+                        "listeners": [
+                            {
+                                "eventType": "click",
+                                "handler": handler,
+                                "handlerReachesTarget": None,
+                                "handlerDirectlyReachesTarget": None,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        "transitions": [],
+        "components": {},
+        **members,
+    }
+    if marker is not None:
+        document["distancePairs"] = marker
+    return document
+
+
+def _click_pairs(artifact_path):
+    with open(artifact_path, encoding="utf-8") as handle:
+        artifact = json.load(handle)
+    return artifact["widgets"]["com.example.Main"]["b"]["dist"]["click"]
+
+
+class TestWeightLadder:
+    """`mop_weights`: its two forms, its refusals and its properties line."""
+
+    def test_a_dsl_ladder_reaches_the_properties_with_commas(self, tmp_path):
+        # Spec scenario "a ladder written in the DSL reaches the properties with
+        # commas".
+        tool = ApeRVTool()
+        tool.configure(_cell("mop", mop_weights="500;400;300;200"))
+
+        properties = _written_properties(tool, tmp_path, artifact_pushed=True)
+
+        lines = properties.splitlines()
+        assert "ape.mopWeights=500,400,300,200" in lines
+        assert properties.count("ape.mopWeights=") == 1
+        assert not [line for line in lines if line.startswith("ape.mopWeightD")]
+
+    def test_a_comma_inside_the_dsl_value_fails_before_any_push(self):
+        # rv-experiment splits `aperv:mop@mop_weights=500,400,300` on its commas, so
+        # 400 and 300 arrive as two flag parameters that nothing maps.
+        with pytest.raises(ConfigurationError, match=r"'300', '400'"):
+            ApeRVTool().configure(
+                _cell("mop", mop_weights="500", **{"400": True, "300": True})
+            )
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "",
+            "500;",
+            ";500",
+            "500;;300",
+            "500;-1",
+            "500,400",
+            "a;b",
+            "5.0",
+            ";".join(["100"] * 11),
+            [],
+            [500, True],
+            [500, -1],
+            [100] * 11,
+            500,
+        ],
+        ids=repr,
+    )
+    def test_a_malformed_ladder_is_refused_before_the_device(self, value, monkeypatch):
+        # Spec scenario "a malformed ladder is refused before the device".
+        def no_adb(*args, **kwargs):
+            raise AssertionError("configure() must not reach the device")
+
+        monkeypatch.setattr(aperv_mod, "Command", no_adb)
+
+        with pytest.raises(ConfigurationError, match="mop_weights"):
+            ApeRVTool().configure(_cell("mop", mop_weights=value))
+
+    def test_a_list_from_a_variant_dict_renders_the_same(self, tmp_path):
+        tool = ApeRVTool()
+        tool.configure(
+            {
+                **_cell("mop"),
+                "overrides": {"mop_weights": [600, 450, 300, 300, 300]},
+            }
+        )
+
+        assert "ape.mopWeights=600,450,300,300,300\n" in _written_properties(
+            tool, tmp_path
+        )
+        assert tool._derive_cut() == 5
+
+    @pytest.mark.parametrize("key", ["mop_weight_d1", "mop_weight_d2", "mop_weight_d3"])
+    def test_a_retired_per_level_weight_is_an_unmapped_key(self, key):
+        # Spec scenario "a retired per-level weight is an unmapped key".
+        with pytest.raises(ConfigurationError, match=key):
+            ApeRVTool().configure(_cell("mop", **{key: "500"}))
+
+
+class TestDeriveCut:
+    """The artifact derived at the ladder's cut, cached under the cut's name, and
+    refused when the document cannot carry the cut (INV-APV-70 to INV-APV-72)."""
+
+    def _task(self, tmp_path, document):
+        (tmp_path / "app.apk.json").write_text(json.dumps(document))
+        task = MagicMock()
+        task.results_dir = str(tmp_path)
+        task.config.apk_name = "app.apk"
+        return task
+
+    def _tool(self, **parameters):
+        tool = ApeRVTool()
+        tool.configure(_cell("mop", **parameters))
+        return tool
+
+    def test_the_default_cell_derives_at_three(self, tmp_path):
+        # Spec scenario "the default cell derives the artifact it derives today":
+        # the cut is 3, the name is the one without a cut, and the bytes are those
+        # of derive() at its default.
+        document = _ladder_document()
+        task = self._task(tmp_path, document)
+        tool = self._tool()
+
+        path = tool._derive_mop_artifact(task)
+
+        assert tool._derive_cut() == 3
+        assert os.path.basename(path) == "app.apk.mop.json"
+        source = str(tmp_path / "app.apk.json")
+        assert Path(path).read_bytes() == serialize_canonical(
+            derive(
+                document,
+                source_file="app.apk.json",
+                source_digest=aperv_mod.digest_of_file(source),
+            )
+        )
+        assert _click_pairs(path) == [[0, 1]]
+
+    def test_a_shorter_ladder_derives_at_three(self, tmp_path):
+        # Spec scenario "a shorter ladder keeps the cut at three".
+        tool = self._tool(mop_weights="500;400")
+
+        path = tool._derive_mop_artifact(self._task(tmp_path, _ladder_document()))
+
+        assert tool._derive_cut() == 3
+        assert os.path.basename(path) == "app.apk.mop.json"
+        assert _click_pairs(path) == [[0, 1]]
+        assert "ape.mopWeights=500,400\n" in _written_properties(tool, tmp_path)
+
+    def test_a_longer_ladder_deepens_the_cut(self, tmp_path):
+        # Spec scenario "a longer ladder deepens the cut".
+        tool = self._tool(mop_weights=SIX_LEVELS)
+
+        path = tool._derive_mop_artifact(self._task(tmp_path, _ladder_document()))
+
+        assert tool._derive_cut() == 6
+        assert os.path.basename(path) == "app.apk.cut6.mop.json"
+        assert _click_pairs(path) == [[0, 1], [1, 4], [2, 6]]
+
+    def test_the_streaming_read_keeps_the_pairs_of_the_cut(self, tmp_path):
+        # INV-APV-64 at a deeper cut, through the method the run calls: the reader
+        # reduces with the cut, so pairs beyond the default cut and beyond the
+        # DIST_K nearest still reach the artifact, which equals the whole-document
+        # derivation at that cut.
+        document = _ladder_document()
+        document["reachability"][0]["methods"][0]["targetDistances"] = [
+            [0, 1],
+            [1, 4],
+            [2, 5],
+            [3, 6],
+            [4, 6],
+            [5, 7],
+        ]
+        document["distanceTargets"] = [
+            {"signature": f"<T: void t{index}()>", "kind": "direct"}
+            for index in range(6)
+        ]
+        task = self._task(tmp_path, document)
+
+        path = self._tool(mop_weights=SIX_LEVELS)._derive_mop_artifact(task)
+
+        source = str(tmp_path / "app.apk.json")
+        assert Path(path).read_bytes() == serialize_canonical(
+            derive(
+                document,
+                source_file="app.apk.json",
+                source_digest=aperv_mod.digest_of_file(source),
+                cut=6,
+            )
+        )
+        assert _click_pairs(path) == [[0, 1], [1, 4], [2, 5], [3, 6], [4, 6]]
+
+    def test_a_compact_document_under_a_deeper_cut_is_refused(self, tmp_path):
+        # Spec scenario "a compact document under a deeper ladder is refused".
+        tool = self._tool(mop_weights="500;400;300;300")
+        task = self._task(tmp_path, _ladder_document(marker={"weighedMax": 3, "k": 3}))
+
+        with pytest.raises(RVToolExecutionError) as raised:
+            tool._derive_mop_artifact(task)
+
+        message = str(raised.value)
+        assert "app.apk.json" in message
+        assert "weighedMax=3" in message
+        assert "cut 4" in message
+        assert not list(tmp_path.glob("*.mop.json"))
+
+    def test_a_compact_document_at_the_default_cut_is_accepted(self, tmp_path):
+        task = self._task(tmp_path, _ladder_document(marker={"weighedMax": 3, "k": 3}))
+
+        path = self._tool()._derive_mop_artifact(task)
+
+        assert os.path.basename(path) == "app.apk.mop.json"
+
+    @pytest.mark.parametrize(
+        "marker",
+        [{"k": 3}, {"weighedMax": "3"}, {"weighedMax": True}, [3]],
+        ids=repr,
+    )
+    def test_a_malformed_marker_is_refused(self, tmp_path, marker):
+        # Spec scenario "a malformed marker is refused, not guessed".
+        task = self._task(tmp_path, _ladder_document(marker=marker))
+
+        with pytest.raises(RVToolExecutionError, match="distancePairs"):
+            self._tool()._derive_mop_artifact(task)
+
+        assert not list(tmp_path.glob("*.mop.json"))
+
+    def test_a_horizon_below_the_cut_is_refused(self, tmp_path):
+        # INV-APV-71: the derivation's refusal of a cut above `distMax` reaches the
+        # run as RVToolExecutionError, and nothing is written.
+        tool = self._tool(mop_weights=SIX_LEVELS)
+        task = self._task(tmp_path, _ladder_document(distMax=5))
+        before = set(os.listdir(tmp_path))
+
+        with pytest.raises(RVToolExecutionError) as raised:
+            tool._derive_mop_artifact(task)
+
+        assert "horizon 5" in str(raised.value)
+        assert "got 6" in str(raised.value)
+        assert set(os.listdir(tmp_path)) == before
+
+    def test_a_larger_horizon_carries_a_deeper_cut(self, tmp_path):
+        task = self._task(tmp_path, _ladder_document(distMax=15))
+
+        path = self._tool(mop_weights=SIX_LEVELS)._derive_mop_artifact(task)
+
+        assert _click_pairs(path) == [[0, 1], [1, 4], [2, 6]]
+
+    def test_a_cut_change_between_tasks_rederives(self, tmp_path):
+        task = self._task(tmp_path, _ladder_document())
+
+        shallow = self._tool()._derive_mop_artifact(task)
+        deep = self._tool(mop_weights="500;400;300;300;300")._derive_mop_artifact(task)
+
+        assert shallow != deep
+        assert _click_pairs(shallow) == [[0, 1]]
+        assert _click_pairs(deep) == [[0, 1], [1, 4]]
+        # The default artifact is still reused under its own name.
+        assert self._tool()._derive_mop_artifact(task) == shallow
+
+    def test_a_cached_artifact_of_another_cut_is_not_reused(self, tmp_path):
+        # Spec scenario "a cached artifact of another cut is not reused": the
+        # default artifact matches the digest and the format, and a five-level cell
+        # still derives at cut 5 under its own name, leaving the default one as it
+        # was.
+        task = self._task(tmp_path, _ladder_document())
+        default = Path(self._tool()._derive_mop_artifact(task))
+        before = default.read_bytes()
+
+        path = self._tool(mop_weights="500;400;300;200;100")._derive_mop_artifact(task)
+
+        assert path == str(tmp_path / "app.apk.cut5.mop.json")
+        assert _click_pairs(path) == [[0, 1], [1, 4]]
+        assert default.read_bytes() == before
+
+
+class TestCutArtifactsOnTheDevice(_ExecutionHarness):
+    """What reaches the device when the cut moves (INV-APV-71, INV-APV-72)."""
+
+    def test_two_cuts_of_one_document_are_two_artifacts(self, tmp_path):
+        # Spec scenario "two cuts of one document are two artifacts".
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+
+        self._run(tmp_path, "mop")
+        self._run(tmp_path, "mop", mop_weights=SIX_LEVELS)
+
+        default = tmp_path / "app.apk.mop.json"
+        deep = tmp_path / "app.apk.cut6.mop.json"
+        assert default.is_file() and deep.is_file()
+        assert [local for local, _, _ in self._artifact_pushes()] == [
+            str(default),
+            str(deep),
+        ]
+
+    def test_a_document_that_cannot_carry_the_cut_pushes_no_artifact(self, tmp_path):
+        # Spec scenario "a compact document under a deeper ladder is refused": no
+        # artifact is written, and neither the artifact nor ape.properties reaches
+        # the device, nor is the main command built.
+        _write_source(
+            tmp_path, {**SOURCE_DOCUMENT, "distancePairs": {"weighedMax": 3, "k": 3}}
+        )
+
+        with pytest.raises(RVToolExecutionError) as raised:
+            self._run(tmp_path, "mop", mop_weights=SIX_LEVELS)
+
+        assert "weighedMax=3" in str(raised.value)
+        assert "cut 6" in str(raised.value)
+        assert not list(tmp_path.glob("*.mop.json"))
+        assert self._artifact_pushes() == []
+        assert ("push", APERV_DEVICE_PROPERTIES_PATH) not in self.events
+        assert ("main",) not in self.events
+
+
+def _unreachable_llm_server(url, timeout=None):
+    raise OSError("Connection refused")
+
+
+class TestHeapGrowthLimit(_ExecutionHarness):
+    """Every cell sets the heap growth limit before the main command (INV-APV-73)."""
+
+    def _set_limit(self, monkeypatch, raises=None):
+        def set_ape_heap_growth_limit(tool_name, device_name):
+            self.events.append(("heap", tool_name, device_name))
+            if raises is not None:
+                raise raises
+
+        monkeypatch.setattr(
+            aperv_mod,
+            "Android",
+            SimpleNamespace(set_ape_heap_growth_limit=set_ape_heap_growth_limit),
+        )
+
+    @pytest.mark.parametrize("name", sorted(ApeRVTool.get_variants()))
+    def test_every_cell_sets_the_limit_after_the_pushes_and_before_the_main_command(
+        self, tmp_path, monkeypatch, name
+    ):
+        # Spec scenario "every cell starts the APE with the larger limit".
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+        monkeypatch.setattr(
+            aperv_mod.urllib.request, "urlopen", _unreachable_llm_server
+        )
+        self._set_limit(monkeypatch)
+
+        self._run(tmp_path, name, device_id="emulator-5558")
+
+        heap = ("heap", "aperv", "emulator-5558")
+        assert self.events.count(heap) == 1
+        position = self.events.index(heap)
+        assert self.events[position + 1 :] == [("main",)]
+        before = self.events[:position]
+        assert ("push", APERV_DEVICE_JAR_PATH) in before
+        assert ("push", APERV_DEVICE_PROPERTIES_PATH) in before
+        assert all(event[0] == "push" for event in before)
+
+    def test_a_limit_that_does_not_hold_stops_the_main_command(
+        self, tmp_path, monkeypatch
+    ):
+        # Spec scenario "a limit that does not hold stops the task".
+        _write_source(tmp_path, SOURCE_DOCUMENT)
+        self._set_limit(
+            monkeypatch,
+            raises=RVToolExecutionError(
+                "dalvik.vm.heapgrowthlimit reads '192m' on emulator-5554 after the "
+                "setprop, not '512m' (exit code 0)",
+                tool_name="aperv",
+            ),
+        )
+
+        with pytest.raises(RVToolExecutionError, match="192m"):
+            self._run(tmp_path, "mop")
+
+        assert self.events[-1] == ("heap", "aperv", "emulator-5554")
+        assert ("main",) not in self.events
 
 
 # --- gh96: the artifact is device input, never an analysis input -------------

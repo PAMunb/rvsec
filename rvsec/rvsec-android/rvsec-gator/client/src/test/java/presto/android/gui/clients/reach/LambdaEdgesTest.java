@@ -203,7 +203,7 @@ public class LambdaEdgesTest {
 		ReachabilityIndex index = new ReachabilityIndex(Collections.emptySet(),
 				Collections.emptySet(), new HashSet<>(Arrays.asList(save)));
 		TargetDistances<SootMethod> d = TargetDistances.compute(cg, index, appClasses,
-				Collections.emptySet());
+				Collections.emptySet(), TargetDistances.DEFAULT_DIST_MAX);
 
 		assertEquals(Collections.singletonList(save), d.targets());
 		assertArrayEquals(new int[][] { { 0, 2 } }, d.pairs(wrapper0));

@@ -58,7 +58,8 @@ Guava 27.1-jre, classindex 3.4, velocity 1.7, slf4j-simple 1.7.26, JUnit 4.12.
   Scene call graph before reachability, INV-ANA-77), `reach/EmptySiteEdges.java` (edges at the
   instance-invoke sites of app methods SPARK left with no edge, to app callees only, added right
   after the lambda edges, INV-ANA-96), `reach/TargetDistances.java` (one reverse
-  BFS per target, depth ≤ `DIST_MAX` = 10, INV-ANA-73; `compact()` and
+  BFS per target, depth ≤ the run's horizon `horizon()` — the `distMax` client parameter, or
+  `DEFAULT_DIST_MAX` = 10 without it — INV-ANA-73; `compact()` and
   `COMPACT_WEIGHED_MAX`/`COMPACT_K` = 3/3, the per-method reduction of compact output,
   INV-ANA-85; `paths()` and `keptByCompact()`, the second pass behind the distance paths),
   `reach/DistancePaths.java` (the `pathMethods` table and `distancePaths` steps a run writes)
@@ -93,25 +94,40 @@ class Javadoc + `RvsecAnalysisClient` header still describe the older
 **Output modes (INV-ANA-85, INV-ANA-86).** `RvsecAnalysisClient.fullOutput()` reads the
 client parameter `fullOutput`; `true` (case-insensitive) selects **full** output, anything
 else or its absence selects **compact**, the default. `JsonReportWriter` holds one mode,
-so the pre-WTG write and the final write of a run always agree.
-- **Full**: two-space indent, every `targetDistances` pair up to `DIST_MAX`, no marker —
-  the form of the documents already published (E6 corpus included), reproduced byte for
-  byte up to `transitions`; `transitions` holds the same edges, in the order the WTG's
-  identity-hash iteration gives this jar (INV-ANA-86).
-- **Compact**: no whitespace; each method's `targetDistances` reduced by
-  `TargetDistances.compact` (see Distances below); and a top-level marker
-  `"distancePairs":{"weighedMax":3,"k":3}` written right after the scope members
-  (`package`, `mainActivity`, `codePackage`, `codePackageSource`, `class_defs_under_key`)
-  and before `distanceTargets`, even when the distance pass failed and `distanceTargets`
-  is absent — it describes how the document was written, not what the pass found. A
-  streaming reader learns the document's kind before the first pair.
+so the pre-WTG write and the final write of a run always agree. Both modes are written
+without whitespace (no indent is set on the `JsonWriter`); they differ in the pairs and the
+marker.
+- **Full**: every `targetDistances` pair up to the run's horizon, no marker — the content
+  of the documents already published in indented form (E6 corpus included), member for
+  member and value for value up to `transitions` once parsed, not their bytes;
+  `transitions` holds the same edges, in the order the WTG's identity-hash iteration gives
+  this jar (INV-ANA-86).
+- **Compact**: each method's `targetDistances` reduced by `TargetDistances.compact` (see
+  Distances below); and a top-level marker `"distancePairs":{"weighedMax":3,"k":3}` written
+  right after the scope members (`package`, `mainActivity`, `codePackage`,
+  `codePackageSource`, `class_defs_under_key`) and `distMax` when present, and before
+  `distanceTargets`, even when the distance pass failed and `distanceTargets` is absent —
+  it describes how the document was written, not what the pass found. A streaming reader
+  learns the document's kind before the first pair.
 
-Why compact is the default: the E6 corpus documents took 24.62 GB for 163 APKs in full
-form and take 1.02 GB compact (sdmse 9.3 GB → 55 MB). The only pair consumer, the
-`aperv-tool` MOP derive, keeps exactly the pairs compact output writes, and
-`StaticAnalysisParser` drops the pairs anyway (INV-ANA-80), so either mode yields the same
-`StaticAnalysisData` and the same `*.mop.json` apart from its `source.digest`, the sha256
-of the input file (INV-ANA-89). Offline scripts that
+**Distance horizon (INV-ANA-99, INV-ANA-100).** `RvsecAnalysisClient.parseDistMax` reads the
+client parameter `distMax` first thing in `run()`: absent, every search stops at
+`TargetDistances.DEFAULT_DIST_MAX` (10) and the document carries no `distMax` member, so a
+document without it was computed with 10; present, it must be an integer ≥ 1 (no upper
+bound), it bounds both the distance pass and the path pass, and `JsonReportWriter` writes it
+as the top-level `distMax` right after `class_defs_under_key`, in both writes and both modes.
+Any other value throws `IllegalStateException` naming it before the client computes anything:
+the JVM exits non-zero and no document is written — unlike `fullOutput` and `distancePaths`,
+which fall back to their default. The log line `Output mode: …, distance horizon: N` says
+which horizon ran. The key is `JsonSchema.Keys.DIST_MAX` / `_JK.dist_max`.
+
+Why compact is the default: the E6 corpus documents took 24.62 GB for 163 APKs in indented
+full form and take 1.02 GB compact (sdmse 9.3 GB → 55 MB). The only pair consumer, the
+`aperv-tool` MOP derive, keeps exactly the pairs compact output writes when it derives at
+its default cut (3), and `StaticAnalysisParser` drops the pairs anyway (INV-ANA-80), so either mode yields
+the same `StaticAnalysisData` and the same `*.mop.json` apart from its `source.digest`, the
+sha256 of the input file (INV-ANA-89). A cell whose weight ladder deepens the cut needs a
+full document, and `aperv-tool` refuses a compact one. Offline scripts that
 count pairs beyond the reduction need a full document; the marker says which one they
 hold. A full document already on disk is converted with `rv-static-analysis compact`
 (byte-identical to GATOR's compact output, INV-ANA-87) instead of re-running GATOR.
@@ -143,29 +159,33 @@ the two members.
   `{signature, kind}`: `kind` `"direct"` = app methods with `directlyReachesTarget` (C), then
   `"boundary"` = app methods with an edge to a library method that reaches a target through
   library code only (B \ C). Each method entry may carry `targetDistances` = `[[index, d], …]`
-  with `d ≤ 10`, sorted by index; the key is omitted when the method has no pair, and
-  `distanceTargets` is omitted only when the pass failed.
+  with `d ≤` the run's horizon (`distMax`, 10 when the document carries none), sorted by
+  index; the key is omitted when the method has no pair, and `distanceTargets` is omitted
+  only when the pass failed.
 - Each search visits a method's callers in signature order (sorted once in `compute`, kept
   on the instance until `run()` releases them after the path pass, so the WTG runs
   without them), with a first-in first-out queue. The order changes no distance; it
   fixes which of several equally short paths a search reaches first, so the distance paths
   are the same on every run over the same graph (INV-ANA-92). `paths()` is a second pass:
-  it repeats the search of each target named by a written pair, recording the callee each
-  method was first visited from, and holds one target's search at a time. Recording
+  it repeats, with the same horizon, the search of each target named by a written pair,
+  recording the callee each method was first visited from, and holds one target's search
+  at a time. Recording
   predecessors in the first pass would hold one entry per visited method per target,
   library methods included, for the whole run, and compact output cannot know which pairs
   survive before every target's search is done.
 - Full output writes every pair the searches recorded. Compact output keeps per method the
   pairs at `d ≤ COMPACT_WEIGHED_MAX` (3) plus the `COMPACT_K` (3) nearest by `(d, i)`,
   still sorted by index (INV-ANA-85); `distanceTargets` is written whole in both modes,
-  because it is the index space. The numbers are the derive's (`aperv-tool`
-  `DIST_WEIGHED_MAX`/`DIST_K`: the jar weighs a pair only up to `d = 3`, `activityDist`
-  keeps the 3 nearest), which makes the reduction exact for it: a dropped pair has 3
-  targets ahead of it in its own method. Because the nearest pair always survives, a method
-  carries `targetDistances` in compact output exactly when it does in full output. The
-  three declarations (Java, the `rv-static-analysis` converter, `aperv-tool`) are pinned
-  equal by `../rv-android/tests/parity/test_distance_pair_constants.py` (INV-ANA-88); the
-  marker keys live in `JsonSchema.Keys` and `_JK`.
+  because it is the index space. The numbers are the derive's defaults (`aperv-tool`
+  `DIST_WEIGHED_MAX`/`DIST_K`: the jar's default ladder weighs a pair only up to `d = 3`,
+  `activityDist` keeps the 3 nearest), which makes the reduction exact for it at that cut:
+  a dropped pair has 3 targets ahead of it in its own method. Because the nearest pair
+  always survives, a method carries `targetDistances` in compact output exactly when it
+  does in full output. The three declarations (Java, the `rv-static-analysis` converter,
+  `aperv-tool`) are pinned equal by `../rv-android/tests/parity/test_distance_pair_constants.py`
+  (INV-ANA-88), which also pins the default horizon 10 in `TargetDistances.DEFAULT_DIST_MAX`,
+  `rv_static_analysis.config` and the derive; the marker keys live in `JsonSchema.Keys` and
+  `_JK`.
 - Window types: `ACTIVITY`, `DIALOG`, `OPTIONSMENU`, `FRAGMENT` (`Host#Fragment`) and
   `HOSTED` (`Host#Owner`). Owned windows are numbered from `FIRST_OWNED_WINDOW_ID` = 900000;
   a `HOSTED` window whose name equals a `FRAGMENT` window is dropped (one window per (host,
@@ -191,7 +211,9 @@ Params (`Configs.getClientParamCode`): `mopDir` **XOR** `targetsFile` (INV-ANA-3
 in Python and re-checked in-client); `cgAlgorithm=spark` (default); **`cgDelegation=false`
 (default, M3 gate 2026-05-15)**; `skipWtg=false`; `fullOutput=false` (compact output;
 `true` writes the full document, see JSON contract); `distancePaths=false` (`true` adds
-`pathMethods`/`distancePaths`, see JSON contract); `--timeout=600`.
+`pathMethods`/`distancePaths`, see JSON contract); `distMax` (absent: horizon 10 and no
+`distMax` member; an integer ≥ 1 sets the horizon and is recorded; any other value aborts
+the run, see JSON contract); `--timeout=600`.
 
 ## References
 

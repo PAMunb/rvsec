@@ -16,6 +16,7 @@ from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
+from rv_android_core.util.android.android import Android
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import RVToolExecutionError
 from rv_android_core.util.jar_resolver import JarResolver
@@ -63,6 +64,9 @@ class APETool(AbstractTool):
       TOOL_TEARDOWN_GRACE_S, and a run is judged by elapsed time, not exit code
     - Pushes an ape.properties that captures on each new abstract state rather
       than on every step
+    - Same heap as APE-RV: before the launch, dalvik.vm.heapgrowthlimit is set
+      to APE_HEAP_GROWTH_LIMIT through Android.set_ape_heap_growth_limit, the
+      call APE-RV makes
 
     ### Tool Variants:
     APE supports different exploration strategies as variants:
@@ -187,8 +191,9 @@ class APETool(AbstractTool):
         1. Resolve the budget from the task configuration
         2. Resolve the APE jar and push it to the device
         3. Push ape.properties with the capture settings
-        4. Run APE with a command timeout of the budget plus TOOL_TEARDOWN_GRACE_S
-        5. Compare the elapsed time with the budget minus TOOL_TEARDOWN_GRACE_S
+        4. Set dalvik.vm.heapgrowthlimit to APE_HEAP_GROWTH_LIMIT and read it back
+        5. Run APE with a command timeout of the budget plus TOOL_TEARDOWN_GRACE_S
+        6. Compare the elapsed time with the budget minus TOOL_TEARDOWN_GRACE_S
 
         Args:
             task: Task configuration containing timeout and other parameters
@@ -198,7 +203,8 @@ class APETool(AbstractTool):
             RVCommandTimeoutError: APE was still running at the command timeout.
                 AbstractTool.execute() converts it to RVToolTimeoutError, the
                 normal end of a run.
-            RVToolExecutionError: The jar or properties push failed, or APE
+            RVToolExecutionError: The jar or properties push failed, the heap
+                growth limit could not be set or did not read back, or APE
                 returned more than TOOL_TEARDOWN_GRACE_S short of its budget.
         """
         # --- Step 1: Resolve execution parameters ---
@@ -231,6 +237,13 @@ class APETool(AbstractTool):
         ape_jar_path = self._resolve_ape_jar_path()
         self._push_ape_jar_to_device(ape_jar_path, task.result.trace_file)
         self._push_ape_properties(task.result.trace_file)
+
+        # --- Step 2b: Give APE's VM the heap APE-RV's gets (INV-TOOL-30) ---
+        # app_process reads dalvik.vm.heapgrowthlimit when it starts the VM. APE-RV
+        # sets it in every cell with the same call, so the two arms of a comparison
+        # start APE with the same heap. A limit that does not read back raises here,
+        # before APE starts.
+        Android.set_ape_heap_growth_limit(self.name, self.config["device_serial"])
 
         # --- Step 3: Build and execute APE shell command ---
         ape_cmd = self._build_ape_shell_command(

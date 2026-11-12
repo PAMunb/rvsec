@@ -1,0 +1,61 @@
+### 5.1 full: new vs baseline (both APKs)
+## cryptoapp.apk
+bytes 79823 vs 50794; newlines 2678 vs 0; bytes-identical False
+ members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+ package equal
+ mainActivity equal
+ codePackage equal
+ codePackageSource equal
+ class_defs_under_key equal
+ distanceTargets equal
+ components equal
+ reachability equal
+ windows equal
+ transitions multiset-equal (35 edges)
+ complete equal
+RESULT PASS
+## org.musicbrainz.picard.barcodescanner_38.apk
+bytes 402506 vs 279021; newlines 11159 vs 0; bytes-identical False
+ members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+ package equal
+ mainActivity equal
+ codePackage equal
+ codePackageSource equal
+ class_defs_under_key equal
+ distanceTargets equal
+ components equal
+ reachability equal
+ windows equal
+ transitions multiset-equal (175 edges)
+ complete equal
+RESULT PASS
+## fixture recipe (jca, cryptoapp): current fixture vs new jar
+bytes 80709 vs 51260; newlines 2718 vs 0; bytes-identical False
+ members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+ package equal
+ mainActivity equal
+ codePackage equal
+ codePackageSource equal
+ class_defs_under_key equal
+ distanceTargets equal
+ components equal
+ reachability equal
+ windows equal
+ transitions multiset-equal (35 edges)
+ complete equal
+RESULT PASS
+## fixture recipe: baseline jar vs new jar
+bytes 80709 vs 51260; newlines 2718 vs 0; bytes-identical False
+ members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+ package equal
+ mainActivity equal
+ codePackage equal
+ codePackageSource equal
+ class_defs_under_key equal
+ distanceTargets equal
+ components equal
+ reachability equal
+ windows equal
+ transitions multiset-equal (35 edges)
+ complete equal
+RESULT PASS
